@@ -64,6 +64,7 @@ def _passages(dossier: dict) -> dict[str, dict]:
 def _proposal_view(state: AState) -> dict:
     p = dict(state["proposal"])
     p.pop("options", None)
+    p.pop("client_reference", None)  # irrelevant to the assessment; keeping it would defeat the LLM cache
     notes = p.pop("notes", "")
     withheld = any(f in state.get("flags", []) for f in ("prompt_injection_suspected", "toxic_content"))
     return {"proposal": p, "notes": "[withheld: flagged by input guardrail]" if withheld else wrap_untrusted(notes)}

@@ -77,3 +77,25 @@ containerd image store, whose layer layout cAdvisor cannot map to containers.
 that reads `/containers/{id}/stats` and `/containers/{id}/json` from the Docker API and exports CPU
 cores, memory, uptime, restarts and network bytes per compose service. Works on Docker Desktop and
 on Linux hosts alike.
+
+---
+
+## INC-004 - LLM response cache never hit for resubmitted proposals (2026-10-19)
+
+**Impact.** Identical proposals submitted again (with the whole-run cache off, or after a
+bypass) paid the full model cost every time: 0 % LLM cache hits, ~33k billable tokens per run.
+
+**Detection.** The D7 caching measurement: `llm_hit_ratio = 0` for a workload of three repeated
+proposals with the LLM cache enabled.
+
+**Root cause.** The proposal view sent to the models included `client_reference`, which is unique
+per submission. The LLM cache key is a hash of the messages, so every prompt was different. (The
+whole-run cache was unaffected because its key, `canonical_hash()`, already excluded that field.)
+
+**Fix.** `client_reference` (and `options`) are removed from what the agents send to the model in
+both `researcher._proposal_view` and `assessor._proposal_view`; they have no bearing on the
+assessment. Re-measured: 96 % of model calls served from cache, p95 21 s -> 1.1 s, billable tokens
+per run 32,947 -> 1,375.
+
+**Lesson.** Cache keys must be derived from exactly the inputs that determine the answer; a
+request id leaking into a prompt silently defeats any response cache.

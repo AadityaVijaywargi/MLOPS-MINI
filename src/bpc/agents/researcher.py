@@ -135,6 +135,7 @@ def _ctx(config: RunnableConfig) -> RunContext:
 def _proposal_view(state: RState) -> dict:
     p = dict(state["proposal"])
     p.pop("options", None)
+    p.pop("client_reference", None)  # irrelevant to the assessment; keeping it would defeat the LLM cache
     notes = p.pop("notes", "")
     view = {"proposal": p}
     view["notes"] = "[withheld: flagged by input guardrail]" if state.get("notes_withheld") else wrap_untrusted(notes)
@@ -209,7 +210,7 @@ async def agent(state: RState, config: RunnableConfig) -> dict:
         return {"budget_exhausted": True, "finished": True}
     prompt = load_prompt("researcher.agent", "v1")
     try:
-        msg = await llm_chat(ctx, "agent", prompt, state["messages"], tools=TOOLS, max_tokens=900)
+        msg = await llm_chat(ctx, "agent", prompt, compact_history(state["messages"]), tools=TOOLS, max_tokens=900)
     except LLMUnavailable as exc:
         return {"degraded": True, "degraded_reason": str(exc)}
     ctx.steps += 1
@@ -223,6 +224,30 @@ async def agent(state: RState, config: RunnableConfig) -> dict:
                  "finish_research. Do not answer in prose."}
         return {"messages": state["messages"] + [assistant, nudge], "nudges": state.get("nudges", 0) + 1}
     return {"messages": state["messages"] + [assistant], "finished": True}
+
+
+def compact_history(messages: list[dict]) -> list[dict]:
+    """Context compaction (cost, L5): tool results older than the latest tool round are
+    reduced to ids + labels. The model already acted on them; it can re-read any clause
+    with get_clause. Without this the prompt grows with every turn and the research
+    loop dominates the cost of a run."""
+    if not settings.context_compaction_enabled:
+        return messages
+    last_assistant = max((i for i, m in enumerate(messages) if m["role"] == "assistant"), default=-1)
+    out = []
+    for i, m in enumerate(messages):
+        if m["role"] == "tool" and i < last_assistant:
+            try:
+                data = json.loads(m.get("content") or "{}")
+            except json.JSONDecodeError:
+                data = {}
+            if "passages" in data:
+                brief = {"passages": [{"chunk_id": p["chunk_id"], "clause_label": p.get("clause_label")}
+                                      for p in data["passages"]],
+                         "note": "text elided from history; call get_clause to re-read a passage"}
+                m = {**m, "content": json.dumps(brief, ensure_ascii=False)}
+        out.append(m)
+    return out
 
 
 def _compact(p: dict) -> dict:

@@ -88,6 +88,9 @@ curl -s localhost:8000/v1/runs/<run_id>/trace    # every tool call, query, passa
 ## Common operations
 
 ```bash
+# smoke test of every demonstration item against the running stack (~2.5 min)
+docker compose exec api python -m bpc.evaluation.smoke
+
 # unit tests (inside the retriever image, which has every dependency)
 docker compose run --rm --no-deps indexer python -m pytest -q tests
 

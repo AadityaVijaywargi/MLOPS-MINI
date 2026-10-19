@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     # Prompt variants (L2)
     prompt_variant_assessor: str = "v2"
     modifier_search_enabled: bool = True
+    context_compaction_enabled: bool = True
 
     @property
     def database_dsn(self) -> str:
