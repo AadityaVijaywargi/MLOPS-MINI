@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "satisfactory": {
+      "title": "Satisfactory",
+      "type": "boolean"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "satisfactory",
+    "reason"
+  ],
+  "title": "FeedbackIn",
+  "type": "object",
+  "$id": "https://bpc.local/contracts/feedback.v1.0.json",
+  "x-contract-version": "1.0"
+}

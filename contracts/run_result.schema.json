@@ -1,0 +1,339 @@
+{
+  "$defs": {
+    "Citation": {
+      "properties": {
+        "chunk_id": {
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "doc_id": {
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "clause_label": {
+          "title": "Clause Label",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "passage_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passage Text"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "doc_id",
+        "clause_label",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Escalation": {
+      "properties": {
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "reasons": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "path": {
+          "default": "Refer to a licensed architect/structural engineer for review before submission to the BBMP sanctioning authority.",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "title": "Escalation",
+      "type": "object"
+    },
+    "Finding": {
+      "properties": {
+        "provision_id": {
+          "title": "Provision Id",
+          "type": "string"
+        },
+        "topic": {
+          "title": "Topic",
+          "type": "string"
+        },
+        "clause_label": {
+          "title": "Clause Label",
+          "type": "string"
+        },
+        "requirement": {
+          "title": "Requirement",
+          "type": "string"
+        },
+        "required_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Value"
+        },
+        "proposed_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proposed Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "comparison": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparison"
+        },
+        "status": {
+          "enum": [
+            "satisfied",
+            "violated",
+            "not_determinable",
+            "not_applicable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "derivation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Derivation"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "provision_id",
+        "topic",
+        "clause_label",
+        "requirement",
+        "status",
+        "explanation",
+        "citations"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Route": {
+      "enum": [
+        "clear-for-submission",
+        "revise-and-recheck",
+        "specialist-review"
+      ],
+      "title": "Route",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "route": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Route"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "category": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Category"
+    },
+    "findings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "candidate_provisions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Candidate Provisions",
+      "type": "array"
+    },
+    "withheld_findings": {
+      "default": 0,
+      "title": "Withheld Findings",
+      "type": "integer"
+    },
+    "escalation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Escalation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "flags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+    },
+    "degraded": {
+      "default": false,
+      "title": "Degraded",
+      "type": "boolean"
+    },
+    "prompt_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Prompt Versions",
+      "type": "object"
+    },
+    "cost_usd": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Usd"
+    },
+    "tokens": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "default": {},
+      "title": "Tokens",
+      "type": "object"
+    },
+    "disclaimer": {
+      "default": "Pre-check finding only. This service never certifies a plan as compliant; a licensed architect or engineer makes the determination.",
+      "title": "Disclaimer",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "status"
+  ],
+  "title": "RunResult",
+  "type": "object",
+  "$id": "https://bpc.local/contracts/run_result.v1.0.json",
+  "x-contract-version": "1.0"
+}

@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONPATH=/app/src SENTENCE_TRANSFORMERS_HOME=/models HF_HOME=/models
+WORKDIR /app
+# CPU-only torch keeps the image ~1 GB smaller than the default CUDA wheel.
+RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
+COPY requirements/ requirements/
+RUN pip install -r requirements/retriever.txt
+# The embedding model is baked into the image so the indexer and retriever never
+# need network access at runtime. Override with --build-arg / EMBEDDING_MODEL.
+ARG EMBEDDING_MODEL
+RUN test -n "$EMBEDDING_MODEL" && python -c "import sys; from sentence_transformers import SentenceTransformer; SentenceTransformer(sys.argv[1])" "$EMBEDDING_MODEL"
+ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+COPY src/ src/
+COPY prompts/ prompts/
+COPY contracts/ contracts/
+COPY eval/ eval/
+COPY tests/ tests/
+RUN useradd --create-home --uid 10001 app && mkdir -p /index && chown -R app /app /index /models
+USER app

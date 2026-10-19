@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "status_url": {
+      "title": "Status Url",
+      "type": "string"
+    },
+    "trace_url": {
+      "title": "Trace Url",
+      "type": "string"
+    },
+    "poll_after_s": {
+      "default": 2.0,
+      "title": "Poll After S",
+      "type": "number"
+    },
+    "cached_from": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cached From"
+    }
+  },
+  "required": [
+    "run_id",
+    "status",
+    "status_url",
+    "trace_url"
+  ],
+  "title": "SubmitResponse",
+  "type": "object",
+  "$id": "https://bpc.local/contracts/submit_response.v1.0.json",
+  "x-contract-version": "1.0"
+}

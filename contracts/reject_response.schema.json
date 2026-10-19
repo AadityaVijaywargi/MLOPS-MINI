@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "FieldError": {
+      "properties": {
+        "loc": {
+          "title": "Loc",
+          "type": "string"
+        },
+        "msg": {
+          "title": "Msg",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "input": {
+          "default": null,
+          "title": "Input"
+        }
+      },
+      "required": [
+        "loc",
+        "msg",
+        "type"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "error": {
+      "const": "validation_failed",
+      "default": "validation_failed",
+      "title": "Error",
+      "type": "string"
+    },
+    "quarantine_id": {
+      "title": "Quarantine Id",
+      "type": "integer"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/FieldError"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "agent_run_started": {
+      "const": false,
+      "default": false,
+      "title": "Agent Run Started",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "quarantine_id",
+    "errors"
+  ],
+  "title": "RejectResponse",
+  "type": "object",
+  "$id": "https://bpc.local/contracts/reject_response.v1.0.json",
+  "x-contract-version": "1.0"
+}

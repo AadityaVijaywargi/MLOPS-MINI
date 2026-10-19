@@ -1,0 +1,25 @@
+# Corpus manifest: the single source of truth for what is indexed.
+# The indexer records each file's sha256 so data freshness and versions are
+# traceable (D2). Precedence is a declared project assumption, confirmed at
+# Evaluation 1: where both documents regulate the same topic for the same case,
+# the RMP-2015 Zoning Regulations (Government-approved 2007, later than the 2003
+# bye-laws; bye-law 5 makes violation of the Zoning Regulations a ground for
+# refusal) govern the topics listed under `governs`. Any other conflict escalates.
+jurisdiction: BBMP-Bengaluru
+documents:
+  - doc_id: ZR2015
+    title: "BDA Revised Master Plan 2015 - Zoning of Land Use and Regulations (Vol. III)"
+    short: "RMP-2015 ZR"
+    version: "G.O. UDD 540 BEM AA SE 2004, 22-06-2007"
+    file: raw/bda_rmp2015_zoning_regulations.pdf
+    source_url: "https://data.opencity.in/dataset/bengaluru-masterplan-zoning-regulations-2015"
+    precedence: 1
+    governs: [setbacks, far, ground_coverage, height, use]
+  - doc_id: BBL2003
+    title: "Bangalore Mahanagara Palike Building Bye-laws 2003"
+    short: "BBMP Bye-laws 2003"
+    version: "Approved 21-02-2004, in force 05-06-2004"
+    file: raw/bbmp_building_byelaws_2003.pdf
+    source_url: "https://data.opencity.in/dataset/bbmp-building-bye-laws-2003"
+    precedence: 2
+    governs: [parking, fire_access, high_rise, other]

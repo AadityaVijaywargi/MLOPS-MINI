@@ -1,0 +1,10 @@
+# Retriever / indexer: app deps + local embeddings and vector index.
+# torch (CPU wheel) is installed separately in docker/Dockerfile.retriever.
+-r app.txt
+langchain-community>=0.3,<2
+langchain-huggingface>=0.1,<2
+sentence-transformers>=3.0,<6
+faiss-cpu>=1.8,<2
+rank-bm25>=0.2.2
+pypdf>=4.2
+numpy>=1.26,<3

@@ -1,0 +1,331 @@
+{
+  "$defs": {
+    "Building": {
+      "additionalProperties": false,
+      "properties": {
+        "proposed_height_m": {
+          "maximum": 300,
+          "minimum": 2,
+          "title": "Proposed Height M",
+          "type": "number"
+        },
+        "floors_above_ground": {
+          "description": "Habitable floors above ground, excluding stilt",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Floors Above Ground",
+          "type": "integer"
+        },
+        "has_stilt": {
+          "default": false,
+          "title": "Has Stilt",
+          "type": "boolean"
+        },
+        "basement_floors": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Basement Floors",
+          "type": "integer"
+        },
+        "proposed_far": {
+          "exclusiveMinimum": 0,
+          "maximum": 20,
+          "title": "Proposed Far",
+          "type": "number"
+        },
+        "ground_coverage_pct": {
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Ground Coverage Pct",
+          "type": "number"
+        },
+        "total_built_up_sqm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 5000000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Built Up Sqm"
+        },
+        "dwelling_units": {
+          "default": 1,
+          "maximum": 5000,
+          "minimum": 0,
+          "title": "Dwelling Units",
+          "type": "integer"
+        },
+        "car_parking_spaces": {
+          "default": 0,
+          "maximum": 20000,
+          "minimum": 0,
+          "title": "Car Parking Spaces",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "proposed_height_m",
+        "floors_above_ground",
+        "proposed_far",
+        "ground_coverage_pct"
+      ],
+      "title": "Building",
+      "type": "object"
+    },
+    "BuildingUse": {
+      "enum": [
+        "residential_single_dwelling",
+        "residential_multi_dwelling",
+        "commercial_retail",
+        "commercial_office",
+        "hotel_lodging",
+        "mixed_residential_commercial",
+        "institutional_educational",
+        "institutional_hospital",
+        "institutional_assembly",
+        "industrial",
+        "other"
+      ],
+      "title": "BuildingUse",
+      "type": "string"
+    },
+    "Plot": {
+      "additionalProperties": false,
+      "properties": {
+        "area_sqm": {
+          "description": "Plot area in square metres",
+          "exclusiveMinimum": 10,
+          "maximum": 200000,
+          "title": "Area Sqm",
+          "type": "number"
+        },
+        "width_m": {
+          "description": "Plot width (frontage) in metres",
+          "maximum": 1000,
+          "minimum": 1.5,
+          "title": "Width M",
+          "type": "number"
+        },
+        "depth_m": {
+          "description": "Plot depth in metres",
+          "maximum": 1000,
+          "minimum": 1.5,
+          "title": "Depth M",
+          "type": "number"
+        },
+        "is_corner": {
+          "default": false,
+          "description": "Plot abuts two roads at a corner",
+          "title": "Is Corner",
+          "type": "boolean"
+        },
+        "is_irregular": {
+          "default": false,
+          "description": "Plot is not approximately rectangular",
+          "title": "Is Irregular",
+          "type": "boolean"
+        },
+        "ring": {
+          "$ref": "#/$defs/Ring",
+          "default": "unknown",
+          "description": "RMP-2015 ring (I/II/III) the plot lies in"
+        }
+      },
+      "required": [
+        "area_sqm",
+        "width_m",
+        "depth_m"
+      ],
+      "title": "Plot",
+      "type": "object"
+    },
+    "Ring": {
+      "enum": [
+        "I",
+        "II",
+        "III",
+        "unknown"
+      ],
+      "title": "Ring",
+      "type": "string"
+    },
+    "Road": {
+      "additionalProperties": false,
+      "properties": {
+        "abutting_road_width_m": {
+          "description": "Width of the abutting public road",
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Abutting Road Width M",
+          "type": "number"
+        },
+        "secondary_road_width_m": {
+          "anyOf": [
+            {
+              "maximum": 120,
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Second road (corner/through plots)",
+          "title": "Secondary Road Width M"
+        }
+      },
+      "required": [
+        "abutting_road_width_m"
+      ],
+      "title": "Road",
+      "type": "object"
+    },
+    "RunOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt_variant": {
+          "default": "default",
+          "enum": [
+            "default",
+            "v1",
+            "v2"
+          ],
+          "title": "Prompt Variant",
+          "type": "string"
+        },
+        "bypass_cache": {
+          "default": false,
+          "title": "Bypass Cache",
+          "type": "boolean"
+        }
+      },
+      "title": "RunOptions",
+      "type": "object"
+    },
+    "Setbacks": {
+      "additionalProperties": false,
+      "properties": {
+        "front_m": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Front M",
+          "type": "number"
+        },
+        "rear_m": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Rear M",
+          "type": "number"
+        },
+        "left_m": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Left M",
+          "type": "number"
+        },
+        "right_m": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Right M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "front_m",
+        "rear_m",
+        "left_m",
+        "right_m"
+      ],
+      "title": "Setbacks",
+      "type": "object"
+    },
+    "Zone": {
+      "enum": [
+        "residential_main",
+        "residential_mixed",
+        "commercial_central",
+        "commercial_business",
+        "mutation_corridor",
+        "industrial_general",
+        "industrial_hitech",
+        "public_semi_public",
+        "traffic_transportation",
+        "agricultural",
+        "other"
+      ],
+      "title": "Zone",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "client_reference": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "title": "Client Reference",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "const": "BBMP-Bengaluru",
+      "description": "Only jurisdictions in the indexed corpus",
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "zone": {
+      "$ref": "#/$defs/Zone"
+    },
+    "building_use": {
+      "$ref": "#/$defs/BuildingUse"
+    },
+    "plot": {
+      "$ref": "#/$defs/Plot"
+    },
+    "road": {
+      "$ref": "#/$defs/Road"
+    },
+    "building": {
+      "$ref": "#/$defs/Building"
+    },
+    "setbacks": {
+      "$ref": "#/$defs/Setbacks"
+    },
+    "notes": {
+      "default": "",
+      "description": "Free-text notes. Untrusted: screened by guardrails.",
+      "maxLength": 2000,
+      "title": "Notes",
+      "type": "string"
+    },
+    "options": {
+      "$ref": "#/$defs/RunOptions"
+    }
+  },
+  "required": [
+    "client_reference",
+    "jurisdiction",
+    "zone",
+    "building_use",
+    "plot",
+    "road",
+    "building",
+    "setbacks"
+  ],
+  "title": "Proposal",
+  "type": "object",
+  "$id": "https://bpc.local/contracts/proposal.v1.0.json",
+  "x-contract-version": "1.0"
+}

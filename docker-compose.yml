@@ -1,0 +1,307 @@
+# Building Plan Compliance Pre-Check - full stack.
+#   docker compose up -d --build                     # from a clean clone; no .env needed (stub LLM)
+#   docker compose up -d --scale researcher=3 --scale assessor=3
+# All environment-specific values come from .env (see .env.example). No credentials,
+# provider endpoints or LLM model ids live in this file: the DB/Grafana passwords are
+# generated at first start by `secrets-init`, and the LLM defaults to the in-stack stub.
+name: bpc
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.app
+  image: bpc-app:latest
+  restart: unless-stopped
+  networks: [bpc]
+
+x-common-env: &common-env
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  REDIS_URL: redis://redis:6379/0
+  DB_HOST: postgres
+  DB_NAME: bpc
+  DB_USER: bpc
+  DB_PASSWORD_FILE: /run/bpc-secrets/postgres_password
+  RETRIEVER_URL: http://retriever:8001
+  LLM_GATEWAY_URL: http://llm-gateway:8002
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+  JAEGER_UI_URL: ${JAEGER_UI_URL:-http://localhost:16686}
+  PROMPTS_DIR: /app/prompts
+
+x-agent-env: &agent-env
+  <<: *common-env
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+  RESEARCHER_MAX_STEPS: ${RESEARCHER_MAX_STEPS:-14}
+  RESEARCHER_MAX_TOOL_CALLS: ${RESEARCHER_MAX_TOOL_CALLS:-24}
+  RESEARCHER_DEADLINE_S: ${RESEARCHER_DEADLINE_S:-120}
+  ASSESSOR_DEADLINE_S: ${ASSESSOR_DEADLINE_S:-90}
+  TOOL_TIMEOUT_S: ${TOOL_TIMEOUT_S:-10}
+  LLM_CLIENT_TIMEOUT_S: ${LLM_CLIENT_TIMEOUT_S:-75}
+  PROMPT_VARIANT_ASSESSOR: ${PROMPT_VARIANT_ASSESSOR:-v2}
+  MODIFIER_SEARCH_ENABLED: ${MODIFIER_SEARCH_ENABLED:-true}
+  ONLINE_EVAL_SAMPLE_RATE: ${ONLINE_EVAL_SAMPLE_RATE:-0.25}
+  METRICS_PORT: "9100"
+
+x-worker-health: &worker-health
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9100/metrics', timeout=3)"]
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 20s
+
+services:
+  # ---------------------------------------------------------------- bootstrap
+  secrets-init:
+    image: alpine:3.20
+    command: >
+      sh -c 'for f in postgres_password grafana_admin_password; do
+               [ -s /secrets/$$f ] || (head -c 32 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 24 > /secrets/$$f);
+             done; chmod 644 /secrets/*; echo secrets ready'
+    volumes: [secrets:/secrets]
+    networks: [bpc]
+
+  # ------------------------------------------------------------------- state
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [bpc]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bpc
+      POSTGRES_DB: bpc
+      POSTGRES_PASSWORD_FILE: /run/bpc-secrets/postgres_password
+    volumes: [pgdata:/var/lib/postgresql/data, secrets:/run/bpc-secrets:ro]
+    depends_on:
+      secrets-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bpc -d bpc"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks: [bpc]
+
+  # --------------------------------------------------------------- retrieval
+  indexer:  # one-shot, idempotent corpus pipeline (D2); re-run any time
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.retriever
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+    image: bpc-retriever:latest
+    command: ["python", "-m", "bpc.retriever.ingest"]
+    environment:
+      <<: *common-env
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      CORPUS_DIR: /corpus
+      INDEX_DIR: /index
+    volumes: [./corpus:/corpus:ro, index:/index]
+    restart: "no"
+    networks: [bpc]
+
+  retriever:
+    image: bpc-retriever:latest
+    command: ["uvicorn", "bpc.retriever.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      <<: *common-env
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      INDEX_DIR: /index
+      RETRIEVAL_CACHE_ENABLED: ${RETRIEVAL_CACHE_ENABLED:-true}
+    volumes: [index:/index]
+    depends_on:
+      indexer: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits: {memory: 2g}
+    restart: unless-stopped
+    networks: [bpc]
+
+  # ---------------------------------------------------------------------- LLM
+  llm-stub:
+    <<: *app
+    command: ["uvicorn", "bpc.stub.main:app", "--host", "0.0.0.0", "--port", "8003"]
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      STUB_DELAY_MS_MIN: ${STUB_DELAY_MS_MIN:-800}
+      STUB_DELAY_MS_MAX: ${STUB_DELAY_MS_MAX:-2000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  llm-gateway:
+    <<: *app
+    command: ["uvicorn", "bpc.gateway.main:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      <<: *common-env
+      # Primary provider: any OpenAI-compatible endpoint. Defaults to the in-stack stub.
+      LLM_PRIMARY_BASE_URL: ${LLM_PRIMARY_BASE_URL:-http://llm-stub:8003/v1}
+      LLM_PRIMARY_API_KEY: ${LLM_PRIMARY_API_KEY:-}
+      LLM_PRIMARY_MODEL: ${LLM_PRIMARY_MODEL:-stub}
+      LLM_PRIMARY_PRICE_IN_PER_MTOK: ${LLM_PRIMARY_PRICE_IN_PER_MTOK:-0}
+      LLM_PRIMARY_PRICE_OUT_PER_MTOK: ${LLM_PRIMARY_PRICE_OUT_PER_MTOK:-0}
+      LLM_PRIMARY_TIMEOUT_S: ${LLM_PRIMARY_TIMEOUT_S:-30}
+      LLM_PRIMARY_JSON_MODE: ${LLM_PRIMARY_JSON_MODE:-false}
+      LLM_FALLBACK_BASE_URL: ${LLM_FALLBACK_BASE_URL:-}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      LLM_FALLBACK_PRICE_IN_PER_MTOK: ${LLM_FALLBACK_PRICE_IN_PER_MTOK:-0}
+      LLM_FALLBACK_PRICE_OUT_PER_MTOK: ${LLM_FALLBACK_PRICE_OUT_PER_MTOK:-0}
+      LLM_FALLBACK_TIMEOUT_S: ${LLM_FALLBACK_TIMEOUT_S:-30}
+      LLM_FALLBACK_JSON_MODE: ${LLM_FALLBACK_JSON_MODE:-false}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_BACKOFF_BASE_S: ${LLM_BACKOFF_BASE_S:-0.5}
+      CIRCUIT_FAILURE_THRESHOLD: ${CIRCUIT_FAILURE_THRESHOLD:-3}
+      CIRCUIT_COOLDOWN_S: ${CIRCUIT_COOLDOWN_S:-30}
+      LLM_CACHE_ENABLED: ${LLM_CACHE_ENABLED:-true}
+      ENABLE_FAULT_INJECTION: ${ENABLE_FAULT_INJECTION:-true}
+    depends_on:
+      redis: {condition: service_healthy}
+      llm-stub: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ------------------------------------------------------------------- agents
+  researcher:
+    <<: *app
+    command: ["python", "-m", "bpc.agents.worker", "researcher"]
+    environment: *agent-env
+    volumes: [secrets:/run/bpc-secrets:ro]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      retriever: {condition: service_healthy}
+      llm-gateway: {condition: service_healthy}
+    healthcheck: *worker-health
+
+  assessor:
+    <<: *app
+    command: ["python", "-m", "bpc.agents.worker", "assessor"]
+    environment: *agent-env
+    volumes: [secrets:/run/bpc-secrets:ro]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      retriever: {condition: service_healthy}
+      llm-gateway: {condition: service_healthy}
+    healthcheck: *worker-health
+
+  # ---------------------------------------------------------------------- API
+  api:
+    <<: *app
+    command: ["uvicorn", "bpc.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8000:8000"]
+    environment:
+      <<: *common-env
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-20}
+      RATE_LIMIT_OVERRIDES: ${RATE_LIMIT_OVERRIDES:-eval:600,loadtest:100000}
+      RUN_CACHE_ENABLED: ${RUN_CACHE_ENABLED:-true}
+      RUN_DEADLINE_S: ${RUN_DEADLINE_S:-300}
+      PROMPT_VARIANT_ASSESSOR: ${PROMPT_VARIANT_ASSESSOR:-v2}
+      MODIFIER_SEARCH_ENABLED: ${MODIFIER_SEARCH_ENABLED:-true}
+    volumes: [secrets:/run/bpc-secrets:ro]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      retriever: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ------------------------------------------------------------ observability
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["16686:16686"]
+    restart: unless-stopped
+    networks: [bpc]
+
+  docker-stats:  # per-container CPU/memory/uptime from the Docker API (works on Docker Desktop and Linux)
+    <<: *app
+    command: ["python", "-m", "bpc.dockerstats.main"]
+    user: root  # needs to read the Docker socket; it only issues GET requests
+    environment:
+      COMPOSE_PROJECT: bpc
+      METRICS_PORT: "9101"
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    volumes: [./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro, promdata:/prometheus]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
+    ports: ["9090:9090"]
+    restart: unless-stopped
+    networks: [bpc]
+
+  grafana:
+    image: grafana/grafana:11.1.3
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/bpc-secrets/grafana_admin_password
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/bpc.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - secrets:/run/bpc-secrets:ro
+      - grafanadata:/var/lib/grafana
+    ports: ["3000:3000"]
+    depends_on:
+      secrets-init: {condition: service_completed_successfully}
+      prometheus: {condition: service_started}
+    restart: unless-stopped
+    networks: [bpc]
+
+  # ------------------------------------------------- on-demand tools (profiles)
+  eval:
+    <<: *app
+    profiles: [tools]
+    restart: "no"
+    command: ["python", "-m", "bpc.evaluation.run_eval", "--help"]
+    environment:
+      <<: *common-env
+      API_URL: http://api:8000
+    volumes: [./eval:/app/eval]
+
+  locust:
+    image: locustio/locust:2.31.5
+    profiles: [loadtest]
+    volumes: [./loadtest:/mnt/locust]
+    working_dir: /mnt/locust
+    command: ["-f", "/mnt/locust/locustfile.py", "--host", "http://api:8000"]
+    ports: ["8089:8089"]
+    networks: [bpc]
+
+networks:
+  bpc: {}
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  index: {}
+  secrets: {}
+  promdata: {}
+  grafanadata: {}
