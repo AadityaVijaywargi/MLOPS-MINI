@@ -1,5 +1,5 @@
 {
-  "label": "trial_gemma",
+  "label": "trial_model_c",
   "at": "2026-10-19T19:42:13.445778+00:00",
   "variant": "v1",
   "api": "http://api:8000",

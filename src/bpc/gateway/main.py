@@ -278,7 +278,7 @@ def _usage(data: dict, body: ChatIn) -> tuple[int, int, bool]:
     pt, ct = usage.get("prompt_tokens"), usage.get("completion_tokens")
     total = usage.get("total_tokens")
     if pt is not None and ct is not None and total and total > pt + ct:
-        ct = total - pt  # hidden "thinking" tokens are billed as output (e.g. Gemini)
+        ct = total - pt  # hidden "thinking" tokens are billed as output
     if pt is None or ct is None:  # estimate (~4 chars/token) when the provider omits usage
         pt = sum(len(json.dumps(m)) for m in body.messages) // 4
         msg = (data.get("choices") or [{}])[0].get("message", {})

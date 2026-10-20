@@ -53,7 +53,7 @@ docker compose up -d
 ```
 
 Any OpenAI-compatible chat-completions endpoint with tool calling works: a hosted free tier,
-OpenRouter, or a local Ollama (`http://host.docker.internal:11434/v1`). `BASE_URL` is the API
+OpenRouter, or a local model server reachable from the containers. `BASE_URL` is the API
 root ending before `/chat/completions`. Set a spending limit on the provider account first.
 Optionally configure `LLM_FALLBACK_*`; the gateway fails over to it when the primary's circuit
 breaker opens.

@@ -1,4 +1,4 @@
-# Evaluation: trial_gemma
+# Evaluation: trial_model_c
 
 - run at: 2026-10-19T19:42:13.445778+00:00
 - variant: v1

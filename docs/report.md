@@ -139,17 +139,29 @@ scenarios executed, all metrics computed, mean 20 s per run). With the **stub** 
 quality measurements - the stub never makes a determination, so only the five escalation
 scenarios route correctly (5/22) - and are reported only as a harness check.
 
-**Pending a real model** (needs a provider key in `.env`): the L2 comparison (`--variant v1` vs
-`--variant v2`) and the L3 before/after (`MODIFIER_SEARCH_ENABLED=true` vs `false`), produced with
+**Real model, reference case.** The section 4.1 case (S01) routes to `revise-and-recheck`, citing
+RMP-2015 ZR Table 10 (ii)(b) - the road-width height cap the request never mentions - and, in the
+run that also completed the modifier round, Table 9, on two different free-tier hosted models
+(`eval/results/real_S01*.md`). Getting there exposed four defects the stub could not
+(INC-005 to INC-008, summarised in section 8).
 
-```bash
-docker compose --profile tools run --rm eval python -m bpc.evaluation.run_eval --label v1 --variant v1
-docker compose --profile tools run --rm eval python -m bpc.evaluation.run_eval --label v2 --variant v2
-docker compose --profile tools run --rm eval python -m bpc.evaluation.run_eval --compare eval/results/v1.json eval/results/v2.json
-MODIFIER_SEARCH_ENABLED=false docker compose up -d researcher
-docker compose --profile tools run --rm eval python -m bpc.evaluation.run_eval --label no_modifier
-docker compose --profile tools run --rm eval python -m bpc.evaluation.run_eval --compare eval/results/v2.json eval/results/no_modifier.json
-```
+**Real model, full set.** A free tier allows a few hundred requests per model per day and a run
+makes 15-30, so the three arms are run by the three team members in parallel, one slice of the
+scenarios each, all arms of a slice on one machine (`docs/team_eval.md`, `scripts/team_eval.sh`).
+Arms 2 and 3 replay the unchanged research steps from the model-response cache, which makes each
+comparison controlled (same model, same research, only the variable under test differs) and fits a
+slice in one day's quota. Runs the provider could not serve are flagged `provider_degraded` and
+excluded from every metric. The slices are combined with `run_eval --merge`:
+
+| arm | assessor prompt | modifier step | role |
+|---|---|---|---|
+| `real_v1` | v1 | on | L2 baseline |
+| `real_v2` | v2 | on | L2 variant; L3 "before" |
+| `real_nomod` | v2 | off | L3 "after" (the deliberate change) |
+
+**L2 result** (`eval/results/compare_real_v1_vs_real_v2.md`): _to be filled in from the merged run._
+
+**L3 result** (`eval/results/compare_real_v2_vs_real_nomod.md`): _to be filled in from the merged run._
 
 ## 6. Performance, scaling and cost
 
@@ -212,6 +224,20 @@ versions, per-step latency, tokens and cost, and each verification outcome.
 * **Chunking is heuristic.** Section detection relies on monotonic numbering; a few clauses are
   merged or windowed imperfectly (e.g. Table 23 parking spans two windows; a short "a) TDR..."
   note once merged into the next note until the minimum-segment threshold was lowered).
+* **Free-tier quotas are per model and per day** (INC-005): one model allowed 20 requests a day,
+  another 500; a run makes 15-30. The gateway now paces requests, waits out a 429 when the provider
+  says how long, and otherwise fails fast to the degraded path. The evaluation was split across the
+  team and made cache-replaying so that it fits.
+* **Stub-shaped fixtures hid contract gaps** (INC-006, INC-008): the router assumed a field only the
+  stub returned (every real violation crashed it); the verifier accepted a proposed value that occurs
+  *somewhere* in the proposal (the side setback compared as the rear one); the assessor treated an
+  exemption a provision offers as one the proposal invokes.
+* **A lighter model never committed its research** (INC-007): it read clauses until the loop bound
+  and recorded none. The agent now has an explicit commit step and keeps 40 % of its budget for the
+  commit, modifier and coverage steps; the verifier also had to accept comparison-form derivations.
+* **Still open:** on a wide road the model does not reliably report the road-width height cap as
+  *not applicable*, so some clear cases escalate for "no verified finding for: height" - the safe
+  failure direction, but a lost determination.
 * **Load steps were 120 s**; at 16+ users in the baseline some runs outlived the step and are
   not counted, so those p95 values are lower bounds.
 
@@ -235,8 +261,8 @@ versions, per-step latency, tokens and cost, and each verification outcome.
 | A7 | `docs/loadtest.md` |
 | A8 | `api/static/index.html` |
 | L1 | `retriever/chunking.py`, `retriever/ingest.py` (`--reembed`) |
-| L2 | `prompts/*.yaml`, prompt tag recorded on every model call and result; comparison pending real model |
-| L3 | `eval/scenarios.yaml`, `bpc.evaluation.run_eval`; real-model numbers pending |
+| L2 | `prompts/*.yaml`, prompt tag recorded on every model call and result; v1 vs v2 on the real model (section 5) |
+| L3 | `eval/scenarios.yaml`, `bpc.evaluation.run_eval`, `docs/team_eval.md`; modifier step on vs off (section 5) |
 | L4 | `common/guardrails.py`: injection screen + spotlighting, output filter, toxicity in/out |
 | L5 | `run_events` tokens/cost per step, `/v1/admin/cost-report` |
 | L6 | `/v1/runs/{id}/feedback`, `/v1/feedback/summary`, online scoring -> `quality_scores`, Grafana |

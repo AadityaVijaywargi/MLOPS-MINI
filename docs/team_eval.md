@@ -26,12 +26,13 @@ test differs.
 ## Steps (each teammate)
 
 1. Clone the repo and start the stack - see "Run it" in `README.md`.
-2. In your own `.env` (never commit it), set your own key and **exactly these model settings** so
-   all slices are comparable:
+2. In your own `.env` (never commit it), set your own key and **exactly the same provider base URL
+   and model id as the rest of the team**, so all slices are comparable. The team shares those two
+   values privately; they are deliberately not written anywhere in the repository (D4).
    ```
-   LLM_PRIMARY_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+   LLM_PRIMARY_BASE_URL=<agreed base URL>
    LLM_PRIMARY_API_KEY=<your own key>
-   LLM_PRIMARY_MODEL=gemini-3.5-flash-lite
+   LLM_PRIMARY_MODEL=<agreed model id>
    LLM_PRIMARY_MAX_RPM=12
    LLM_MAX_RETRIES=4
    LLM_BACKOFF_BASE_S=3
