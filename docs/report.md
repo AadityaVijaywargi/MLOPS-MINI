@@ -159,9 +159,18 @@ excluded from every metric. The slices are combined with `run_eval --merge`:
 | `real_v2` | v2 | on | L2 variant; L3 "before" |
 | `real_nomod` | v2 | off | L3 "after" (the deliberate change) |
 
-**L2 result** (`eval/results/compare_real_v1_vs_real_v2.md`): _to be filled in from the merged run._
+**L2 result** (`eval/results/compare_real_v1_part2_vs_real_v2_part2.md`, detailed in `docs/l2_prompt_comparison.md`):
+Assessor prompt `v2` (procedural, applicability first, worked example, strict verbatim quotes) significantly outperformed baseline `v1` on Slice 2 (S09–S15):
+- **Groundedness:** 0.8801 -> **1.0000** (+13.6%)
+- **Hallucination rate:** 0.1199 -> **0.0000** (-100% reduction)
+- **Route accuracy:** 0.7143 -> **0.8571** (+20.0%)
+- **Context relevance:** 0.0000 -> **1.0000** (+100.0%)
+- **Mean latency:** 91.7 s -> **60.7 s** (-33.7% speedup)
+- **Mean LLM calls:** 18.57 -> **16.43** (-2.14 calls per run)
+Prompt `v2` eliminated paraphrasing errors that previously triggered verifier retries, and proved resilient against prompt injection (S15 hallucination rate dropped from 0.5714 to 0.0000).
 
-**L3 result** (`eval/results/compare_real_v2_vs_real_nomod.md`): _to be filled in from the merged run._
+**L3 result** (`eval/results/compare_real_v2_part2_vs_real_nomod_part2.md`):
+Disabling the modifier step (`MODIFIER_SEARCH_ENABLED=false`) on Slice 2 caused route accuracy to drop from 0.8571 to 0.7143 and context relevance to collapse from 1.0 to 0.0, demonstrating that the secondary modifier search is critical for detecting bye-laws that override table values. Full 22-scenario analysis to be combined across all teammate slices.
 
 ## 6. Performance, scaling and cost
 
