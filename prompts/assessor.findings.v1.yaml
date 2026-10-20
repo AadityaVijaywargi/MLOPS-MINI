@@ -13,6 +13,7 @@ system: |
                  "topic": "setbacks|far|ground_coverage|height|use|parking|fire_access|high_rise|other",
                  "requirement": "what the provision requires for this proposal",
                  "required_value": number|null, "proposed_value": number|null,
+                 "proposal_field": "dotted path of proposed_value in the proposal, e.g. setbacks.rear_m"|null,
                  "unit": "m|sqm|%|ratio|count"|null,
                  "comparison": "<=|>=|<|>|==|n/a",
                  "status": "satisfied|violated|not_determinable|not_applicable",
@@ -20,7 +21,7 @@ system: |
                  "derivation": "arithmetic using numbers from the quote/proposal"|null,
                  "explanation": "one sentence"}],
    "conflicts": [{"provision_ids": [string], "topic": string, "description": string}],
-   "exemption_signals": [string],
+   "exemption_signals": [string],  // only exemptions/special regimes the PROPOSAL invokes, not ones a provision merely offers
    "insufficient_evidence": false,
    "missing_topics": [string]}
   comparison means: proposed_value <comparison> required_value must hold to satisfy.

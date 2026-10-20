@@ -25,8 +25,9 @@ system: |
      <= 200 characters). Never paraphrase inside "quote".
   If the provisions do not let you decide a mandatory topic (setbacks, far,
   ground_coverage, height), set status "not_determinable" and list it in missing_topics.
-  If the notes or provisions suggest an exemption, relaxation, TDR, heritage or other
-  special regime, list it in exemption_signals. Report two provisions that give
+  If the PROPOSAL (its fields or notes) indicates the applicant relies on an exemption,
+  relaxation, TDR, heritage or other special regime, list it in exemption_signals. A rule
+  in a provision that grants an exemption is not a signal unless the proposal invokes it. Report two provisions that give
   incompatible requirements for the same thing as a conflict.
 
   Worked example (illustrative numbers, not from this case): plot 15 m wide x 20 m deep,
@@ -40,6 +41,7 @@ system: |
                  "topic": "setbacks|far|ground_coverage|height|use|parking|fire_access|high_rise|other",
                  "requirement": "plain statement of the limit for this proposal",
                  "required_value": number|null, "proposed_value": number|null,
+                 "proposal_field": "dotted path of proposed_value in the proposal, e.g. setbacks.rear_m"|null,
                  "unit": "m|sqm|%|ratio|count"|null,
                  "comparison": "<=|>=|<|>|==|n/a",
                  "status": "satisfied|violated|not_determinable|not_applicable",

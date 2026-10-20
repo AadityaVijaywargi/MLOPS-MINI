@@ -1,0 +1,113 @@
+{
+  "label": "trial_31lite_d",
+  "at": "2026-10-19T20:17:02.373135+00:00",
+  "variant": "v1",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 3,
+    "errors": 0,
+    "route_accuracy": 0.3333,
+    "groundedness": 0.9167,
+    "context_relevance": 1.0,
+    "faithfulness": 0.9524,
+    "hallucination_rate": 0.0833,
+    "violation_recall": 0.5,
+    "mean_latency_s": 168.3,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 30.6667
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_7805a4ac8edf41a0",
+      "latency_s": 198.8,
+      "expected_route": "revise-and-recheck",
+      "route": "revise-and-recheck",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 0.75,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.25,
+      "verification_attempts": 4,
+      "violation_recall": 0.5,
+      "violated_found": [
+        "ZR2015:T10:ii.b"
+      ],
+      "withheld": 0,
+      "reason": "Violates RMP-2015 ZR \u00a74.1.2 Table 10 (ii)(b). Revise the proposal and re-check.",
+      "cost_usd": 0.0,
+      "llm_calls": 28,
+      "tool_calls": 19,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#fb6e0c87",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    },
+    {
+      "id": "S02",
+      "title": "Same plot and road, Stilt+GF+2 at 10.5 m, setbacks per Table 8",
+      "run_id": "run_2364a4bb72574dab",
+      "latency_s": 160.5,
+      "expected_route": "clear-for-submission",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 0.8571428571428571,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 2,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess.",
+      "cost_usd": 0.0,
+      "llm_calls": 31,
+      "tool_calls": 24,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    },
+    {
+      "id": "S06",
+      "title": "12 x 18 m plot on 12 m road, percentage setbacks satisfied",
+      "run_id": "run_fc05f1e68f3041b0",
+      "latency_s": 145.6,
+      "expected_route": "clear-for-submission",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 2,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Insufficient verified evidence to route automatically: no verified finding for: height",
+      "cost_usd": 0.0,
+      "llm_calls": 33,
+      "tool_calls": 27,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#fb6e0c87",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    }
+  ]
+}

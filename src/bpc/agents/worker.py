@@ -148,7 +148,8 @@ class Worker:
             detach_trace_context(token)
 
     def _ctx(self, run: dict, deadline_s: float) -> RunContext:
-        no_cache = bool((run["proposal"].get("options") or {}).get("bypass_cache"))
+        opts = run["proposal"].get("options") or {}
+        no_cache = bool(opts.get("bypass_cache")) and not opts.get("reuse_model_cache")
         return RunContext(run_id=run["run_id"], agent=self.role, pool=self.pool, http=self.http,
                           deadline=time.monotonic() + deadline_s, no_cache=no_cache)
 

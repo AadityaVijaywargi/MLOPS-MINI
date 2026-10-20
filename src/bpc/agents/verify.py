@@ -63,7 +63,43 @@ def safe_eval(expr: str) -> float:
         raise ValueError("unsupported expression")
     cleaned = re.sub(r"(?<=[\d)])\s*[x×X]\s*(?=[\d(])", " * ", expr)
     cleaned = re.sub(r"(\d+(?:\.\d+)?)\s*%", r"(\1/100)", cleaned)
-    return ev(ast.parse(cleaned.split("=")[0].strip(), mode="eval"))
+    return ev(ast.parse(_lhs(cleaned).strip(), mode="eval"))
+
+
+_ASSIGN = re.compile(r"(?<![<>=!])=(?!=)")
+_COMPARE = re.compile(r"<=|>=|≤|≥|<|>")
+
+
+def _lhs(expr: str) -> str:
+    """'0.08 * 15 = 1.2' -> '0.08 * 15' (a stated result is ignored; '<=' / '>=' are not '=')."""
+    return _ASSIGN.split(expr)[0]
+
+
+def derived_value(deriv: str, req: float) -> float:
+    """The value a derivation produces. Models often write the comparison itself
+    ('1.7 <= 1.75', 'proposed front 1.5 >= 1.0'); then the side that evaluates closest
+    to the required value is taken - its numbers are still checked for traceability."""
+    sides = _COMPARE.split(_lhs(deriv))
+    if len(sides) == 1:
+        return safe_eval(deriv)
+    values = []
+    for side in sides:
+        try:
+            values.append(safe_eval(side))
+        except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
+            continue
+    if not values:
+        raise ValueError("no side of the comparison evaluates")
+    return min(values, key=lambda v: abs(v - req))
+
+
+def _field(obj: dict, path: str) -> float | None:
+    cur: object = obj
+    for part in path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return float(cur) if isinstance(cur, (int, float)) and not isinstance(cur, bool) else None
 
 
 def _close(a: float, b: float, rel: float = 0.01) -> bool:
@@ -155,21 +191,30 @@ def verify_findings(findings: list[dict], passages: dict[str, dict], proposal: d
         deriv = f.get("derivation")
         if isinstance(req, (int, float)) and not isinstance(req, bool):
             if deriv:
-                if any(not _member(n, allowed) for n in numbers(deriv.split("=")[0])):
+                if any(not _member(n, allowed) for n in numbers(_lhs(deriv))):
                     chk.errors.append(f"number_untraceable: derivation '{deriv}' uses numbers not in passage/proposal")
                     untraceable = True
                 else:
                     try:
-                        if not _close(safe_eval(deriv), float(req), 0.02):
+                        if not _close(derived_value(deriv, float(req)), float(req), 0.02):
                             chk.errors.append(f"derivation_mismatch: '{deriv}' != {req}")
                     except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
                         chk.errors.append(f"derivation_unparseable: '{deriv}'")
             elif not _member(float(req), allowed):
                 chk.errors.append(f"number_untraceable: required_value {req} not in passage or proposal")
                 untraceable = True
-        if isinstance(prop, (int, float)) and not isinstance(prop, bool) and not _member(float(prop), allowed):
-            chk.errors.append(f"number_untraceable: proposed_value {prop} not in proposal")
-            untraceable = True
+        if isinstance(prop, (int, float)) and not isinstance(prop, bool):
+            # The proposed value must be the proposal field it claims to be: a number that merely
+            # occurs somewhere in the proposal (the side setback compared as the rear one) is not enough.
+            path = f.get("proposal_field")
+            actual = _field(proposal, path) if isinstance(path, str) else None
+            if not path:
+                chk.errors.append("proposal_field_missing: proposed_value needs the proposal field it comes from")
+            elif actual is None:
+                chk.errors.append(f"proposal_field_unknown: {path!r} is not a numeric proposal field")
+            elif not _close(float(actual), float(prop)):
+                chk.errors.append(f"proposed_value_mismatch: {path} is {actual}, finding uses {prop}")
+                untraceable = True
         cmp = f.get("comparison")
         if (status in ("satisfied", "violated") and cmp in _CMP and isinstance(req, (int, float))
                 and isinstance(prop, (int, float))):

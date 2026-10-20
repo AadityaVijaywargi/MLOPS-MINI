@@ -142,6 +142,9 @@ class Setbacks(_Strict):
 class RunOptions(_Strict):
     prompt_variant: Literal["default", "v1", "v2"] = "default"
     bypass_cache: bool = False
+    # With bypass_cache: still replay cached model responses. Eval A/B runs use it so the
+    # unchanged steps (e.g. the research loop) are identical across arms and cost no quota.
+    reuse_model_cache: bool = False
 
 
 class Proposal(_Strict):

@@ -79,7 +79,7 @@ def decide(
         return esc("An exemption or special regime may apply: " + "; ".join(exemption_signals), exemption_signals)
     violated = [f for f in active if f["status"] == "violated"]
     if violated:
-        labels = sorted({f["clause_label"] for f in violated})
+        labels = sorted({f.get("clause_label") or f["provision_id"] for f in violated})
         return RouteDecision(Route.revise, "Violates " + ", ".join(labels) + ". Revise the proposal and re-check.",
                              [], superseded, resolved)
     gaps = list(missing_topics)

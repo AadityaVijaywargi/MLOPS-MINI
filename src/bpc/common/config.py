@@ -41,17 +41,18 @@ class Settings(BaseSettings):
     # Agent loop bounds (A1)
     researcher_max_steps: int = 14
     researcher_max_tool_calls: int = 24
-    researcher_deadline_s: float = 120.0
+    researcher_deadline_s: float = 420.0
+    researcher_soft_budget_frac: float = 0.6  # free exploration stops here; the rest is for control steps
     assessor_max_verification_retries: int = 1
     assessor_max_research_handbacks: int = 1
-    assessor_deadline_s: float = 90.0
+    assessor_deadline_s: float = 240.0
     tool_timeout_s: float = 10.0
     tool_max_retries: int = 2
-    llm_client_timeout_s: float = 75.0
+    llm_client_timeout_s: float = 200.0
     worker_concurrency: int = 4
     job_lease_s: int = 60
     job_max_attempts: int = 2
-    run_deadline_s: float = 300.0
+    run_deadline_s: float = 900.0
 
     # API
     rate_limit_per_minute: int = 20

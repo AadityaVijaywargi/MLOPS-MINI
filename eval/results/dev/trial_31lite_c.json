@@ -1,0 +1,84 @@
+{
+  "label": "trial_31lite_c",
+  "at": "2026-10-19T20:03:13.559751+00:00",
+  "variant": "v1",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 2,
+    "errors": 0,
+    "route_accuracy": 0.5,
+    "groundedness": 1.0,
+    "context_relevance": 1.0,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0,
+    "violation_recall": null,
+    "mean_latency_s": 116.45,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 19.5
+  },
+  "rows": [
+    {
+      "id": "S02",
+      "title": "Same plot and road, Stilt+GF+2 at 10.5 m, setbacks per Table 8",
+      "run_id": "run_0896213d6da24e4a",
+      "latency_s": 107.6,
+      "expected_route": "clear-for-submission",
+      "route": "clear-for-submission",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 1,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Every mandatory topic has a verified finding and no provision is violated. Clear for submission, subject to professional review.",
+      "cost_usd": 0.0,
+      "llm_calls": 19,
+      "tool_calls": 14,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#8be4eec0",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    },
+    {
+      "id": "S06",
+      "title": "12 x 18 m plot on 12 m road, percentage setbacks satisfied",
+      "run_id": "run_f0322332672e4f0a",
+      "latency_s": 125.3,
+      "expected_route": "clear-for-submission",
+      "route": "revise-and-recheck",
+      "status": "completed",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 2,
+      "violation_recall": null,
+      "violated_found": [
+        "ZR2015:T8"
+      ],
+      "withheld": 0,
+      "reason": "Violates RMP-2015 ZR \u00a73.1 Table 8. Revise the proposal and re-check.",
+      "cost_usd": 0.0,
+      "llm_calls": 20,
+      "tool_calls": 14,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#8be4eec0",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    }
+  ]
+}

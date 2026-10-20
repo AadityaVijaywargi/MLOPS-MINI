@@ -2,6 +2,7 @@
 
     classify -> agent <-> tools -> post_finish -> modifier_check -> agent ...
                                           \-> coverage_check -> agent ...
+                                          \-> select_provisions -> post_finish
                                           \-> handoff
     (any LLMUnavailable) -> fallback (deterministic retrieval, degraded) -> handoff
 
@@ -11,6 +12,9 @@ model first declares itself done, `modifier_check` asks which recorded
 provisions depend on variables that another provision might cap, and feeds
 queries derived from the text it read back into the loop; `coverage_check`
 sends it back with a different strategy if a mandatory topic is still empty.
+`select_provisions` is a one-call commit step for models that keep searching
+without ever recording: if the loop ends with a mandatory topic uncovered but
+passages retrieved, the model picks the binding ones from that retrieved set.
 The loop is bounded by model steps, tool calls and wall-clock time.
 """
 from __future__ import annotations
@@ -126,6 +130,8 @@ class RState(TypedDict, total=False):
     degraded_reason: str
     followup: list[str]
     summary: str
+    selected: bool
+    soft_stopped: bool
 
 
 def _ctx(config: RunnableConfig) -> RunContext:
@@ -198,16 +204,27 @@ async def start_agent(state: RState, config: RunnableConfig) -> dict:
                          "call finish_research:\n" + "\n".join(f"- {q}" for q in state["followup"])})
     return {"messages": messages, "passages": state.get("passages", {}), "recorded": state.get("recorded", {}),
             "queries": state.get("queries", []), "finished": False, "modifier_rounds": 1 if state.get("followup") else 0,
-            "coverage_rounds": 1 if state.get("followup") else 0, "nudges": 0, "tool_failures": 0}
+            "coverage_rounds": 1 if state.get("followup") else 0, "nudges": 0, "tool_failures": 0,
+            "selected": False, "soft_stopped": bool(state.get("followup"))}
 
 
 async def agent(state: RState, config: RunnableConfig) -> dict:
     ctx = _ctx(config)
+    usage = {"steps": ctx.steps, "tool_calls": ctx.tool_calls, "remaining_s": ctx.remaining()}
     if (ctx.steps >= settings.researcher_max_steps or ctx.tool_calls >= settings.researcher_max_tool_calls
             or ctx.remaining() < 8):
-        await ctx.event("agent", "budget", name="loop_bound", status="exhausted",
-                        payload={"steps": ctx.steps, "tool_calls": ctx.tool_calls, "remaining_s": ctx.remaining()})
-        return {"budget_exhausted": True, "finished": True}
+        # Exhausted only if the bound cut the loop before its control steps ran; a bound hit
+        # while following up the modifier/coverage queries ends the research normally.
+        controls_ran = bool(state.get("modifier_rounds") or state.get("coverage_rounds"))
+        await ctx.event("agent", "budget", name="loop_bound", status="truncated" if controls_ran else "exhausted",
+                        payload=usage)
+        return {"budget_exhausted": not controls_ran, "finished": True}
+    frac = settings.researcher_soft_budget_frac
+    if not state.get("soft_stopped") and (ctx.steps >= int(settings.researcher_max_steps * frac)
+                                          or ctx.tool_calls >= int(settings.researcher_max_tool_calls * frac)):
+        # Free exploration ends here so the commit, modifier and coverage steps keep a budget.
+        await ctx.event("agent", "budget", name="soft_bound", status="reached", payload=usage)
+        return {"finished": True, "soft_stopped": True}
     prompt = load_prompt("researcher.agent", "v1")
     try:
         msg = await llm_chat(ctx, "agent", prompt, compact_history(state["messages"]), tools=TOOLS, max_tokens=900)
@@ -418,7 +435,7 @@ async def modifier_check(state: RState, config: RunnableConfig) -> dict:
             + "\n".join(f"- {q}" for q in queries)
             + ("\nReferences to follow: " + ", ".join(follow) if follow else ""))
     return {"messages": state["messages"] + [{"role": "user", "content": text}], "finished": False,
-            "modifier_rounds": state.get("modifier_rounds", 0) + 1}
+            "modifier_rounds": state.get("modifier_rounds", 0) + 1, "selected": False}
 
 
 async def coverage_check(state: RState, config: RunnableConfig) -> dict:
@@ -438,6 +455,65 @@ async def coverage_check(state: RState, config: RunnableConfig) -> dict:
             + "\n".join(f"- {hints[t]}" for t in missing))
     return {"messages": state["messages"] + [{"role": "user", "content": text}], "finished": False,
             "coverage_rounds": state.get("coverage_rounds", 0) + 1}
+
+
+def _needs_selection(state: RState) -> bool:
+    """Run the commit step when a mandatory topic is uncovered, and once more after a
+    modifier round (the modifier passages it searched for must be recorded to count)."""
+    if state.get("selected"):
+        return False
+    recorded = state.get("recorded", {})
+    pending = any(t not in _covered(state) for t in MANDATORY_TOPICS) or bool(state.get("modifier_rounds"))
+    return pending and any(cid not in recorded for cid in state.get("passages", {}))
+
+
+async def select_provisions(state: RState, config: RunnableConfig) -> dict:
+    """Commit step: the loop ended (finished or out of budget) with mandatory topics
+    uncovered although passages were retrieved - some models keep searching and never
+    call record_provision. One bounded structured call picks the binding passages from
+    what was retrieved; ids outside the retrieved set are rejected, so it cannot add
+    a clause that was not read."""
+    ctx = _ctx(config)
+    if ctx.remaining() < 10:
+        return {"selected": True}
+    passages = state.get("passages", {})
+    recorded = {k: {"topics": list(v["topics"]), "why": list(v["why"])} for k, v in state.get("recorded", {}).items()}
+    missing = [t for t in MANDATORY_TOPICS if t not in _covered(state)]
+    # Clauses the model fetched by id (get_clause / follow_reference) carry no search score
+    # but were chosen deliberately, so they go first; then search hits by score.
+    candidates = sorted((p for cid, p in passages.items() if cid not in recorded),
+                        key=lambda p: (p.get("score") is not None, -(p.get("score") or 0)))[:28]
+    payload = {"proposal": _proposal_view(state)["proposal"], "missing_topics": missing,
+               "already_recorded": [{"chunk_id": cid, "topics": r["topics"]} for cid, r in recorded.items()],
+               "candidates": [{**_compact(p), "text": p["text"][:450]} for p in candidates]}
+    prompt = load_prompt("researcher.select", "v1")
+    system, user = prompt.render(payload=json.dumps(payload, ensure_ascii=False))
+    try:
+        msg = await llm_chat(ctx, "select", prompt, [{"role": "system", "content": system},
+                                                     {"role": "user", "content": user}],
+                             json_mode=True, max_tokens=900)
+    except LLMUnavailable as exc:
+        return {"degraded": True, "degraded_reason": str(exc), "selected": True}
+    data = parse_json(msg.get("content")) or {}
+    accepted, rejected = [], []
+    for item in (data.get("selected") or [])[:12]:
+        if not isinstance(item, dict):
+            continue
+        cid, topic = str(item.get("chunk_id", "")), item.get("topic")
+        if cid not in passages or topic not in TOPICS:
+            rejected.append(cid)
+            continue
+        rec = recorded.setdefault(cid, {"topics": [], "why": []})
+        if topic not in rec["topics"]:
+            rec["topics"].append(topic)
+        rec["why"].append(str(item.get("why") or "selected from retrieved passages")[:300])
+        accepted.append((cid, topic))
+    await ctx.event("select", "control", name="select_provisions",
+                    payload={"missing": missing, "candidates": [p["chunk_id"] for p in candidates],
+                             "accepted": accepted, "rejected_ids": rejected,
+                             "unresolved_topics": data.get("unresolved_topics"),
+                             "parsed": bool(data), "response_keys": sorted(data)[:8]})
+    return {"recorded": recorded, "selected": True}
 
 
 async def fallback(state: RState, config: RunnableConfig) -> dict:
@@ -503,6 +579,8 @@ def _after_tools(state: RState) -> str:
 def _post_finish(state: RState) -> str:
     if state.get("degraded"):
         return "fallback"
+    if _needs_selection(state):
+        return "select_provisions"
     if state.get("budget_exhausted"):
         return "handoff"
     if settings.modifier_search_enabled and state.get("modifier_rounds", 0) == 0 and state.get("recorded"):
@@ -525,14 +603,17 @@ def build_graph():
     g = StateGraph(RState)
     for name, fn in (("classify", classify), ("start_agent", start_agent), ("agent", agent), ("tools", tools),
                      ("post_finish", post_finish), ("modifier_check", modifier_check),
-                     ("coverage_check", coverage_check), ("fallback", fallback), ("handoff", handoff)):
+                     ("coverage_check", coverage_check), ("select_provisions", select_provisions),
+                     ("fallback", fallback), ("handoff", handoff)):
         g.add_node(name, fn)
     g.add_edge(START, "classify")
     g.add_conditional_edges("classify", _after_classify, ["fallback", "start_agent"])
     g.add_edge("start_agent", "agent")
     g.add_conditional_edges("agent", _after_agent, ["fallback", "post_finish", "tools", "agent"])
     g.add_conditional_edges("tools", _after_tools, ["post_finish", "agent"])
-    g.add_conditional_edges("post_finish", _post_finish, ["fallback", "handoff", "modifier_check", "coverage_check"])
+    g.add_conditional_edges("post_finish", _post_finish, ["fallback", "handoff", "modifier_check", "coverage_check",
+                                                          "select_provisions"])
+    g.add_edge("select_provisions", "post_finish")
     g.add_conditional_edges("modifier_check", _after_control, ["fallback", "agent"])
     g.add_conditional_edges("coverage_check", _after_control, ["fallback", "agent"])
     g.add_edge("fallback", "handoff")

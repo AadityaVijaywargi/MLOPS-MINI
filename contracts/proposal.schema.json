@@ -204,6 +204,11 @@
           "default": false,
           "title": "Bypass Cache",
           "type": "boolean"
+        },
+        "reuse_model_cache": {
+          "default": false,
+          "title": "Reuse Model Cache",
+          "type": "boolean"
         }
       },
       "title": "RunOptions",

@@ -13,6 +13,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 import asyncio
+import re
+from collections import deque
 import hashlib
 import json
 import os
@@ -61,7 +63,35 @@ class Provider:
     timeout_s: float
     json_mode: bool
     breaker: CircuitBreaker
+    limiter: "RateLimiter"
+    extra_body: dict
     fault: str = "none"  # fault injection: none | down | slow
+
+
+class RateLimiter:
+    """Sliding one-minute window. Keeps us under a provider's requests-per-minute quota
+    (free tiers) by making callers wait for a slot instead of collecting 429s."""
+
+    def __init__(self, rpm: int):
+        self.rpm = rpm
+        self.times: deque[float] = deque()
+        self.lock = asyncio.Lock()
+
+    async def acquire(self) -> float:
+        if self.rpm <= 0:
+            return 0.0
+        waited = 0.0
+        async with self.lock:
+            while True:
+                now = time.monotonic()
+                while self.times and now - self.times[0] >= 60:
+                    self.times.popleft()
+                if len(self.times) < self.rpm:
+                    self.times.append(now)
+                    return waited
+                delay = 60 - (now - self.times[0]) + 0.05
+                await asyncio.sleep(delay)
+                waited += delay
 
 
 def _provider(prefix: str, name: str) -> Provider | None:
@@ -84,6 +114,8 @@ def _provider(prefix: str, name: str) -> Provider | None:
             failure_threshold=int(env.get("CIRCUIT_FAILURE_THRESHOLD", "3")),
             cooldown_s=float(env.get("CIRCUIT_COOLDOWN_S", "30")),
         ),
+        limiter=RateLimiter(int(env.get(f"{prefix}_MAX_RPM", "0") or 0)),
+        extra_body=json.loads(env.get(f"{prefix}_EXTRA_BODY", "") or "{}"),
     )
 
 
@@ -93,6 +125,8 @@ BACKOFF_BASE_S = float(os.environ.get("LLM_BACKOFF_BASE_S", "0.5"))
 CACHE_ENABLED = os.environ.get("LLM_CACHE_ENABLED", "true").lower() == "true"
 CACHE_TTL_S = int(os.environ.get("LLM_CACHE_TTL_S", "86400"))
 FAULT_INJECTION = os.environ.get("ENABLE_FAULT_INJECTION", "false").lower() == "true"
+QUOTA_MAX_WAIT_S = float(os.environ.get("LLM_QUOTA_MAX_WAIT_S", "90"))
+LLM_QUOTA_WAIT = Counter("llm_quota_wait_seconds_total", "Seconds spent waiting on provider quota", ["provider", "kind"])
 
 @asynccontextmanager
 async def _lifespan(_app):
@@ -129,6 +163,22 @@ class Retryable(Exception):
     pass
 
 
+class QuotaExceeded(Exception):
+    """HTTP 429: the provider is healthy but we are over quota. Not an outage."""
+
+    def __init__(self, msg: str, retry_after_s: float | None):
+        super().__init__(msg)
+        self.retry_after_s = retry_after_s
+
+
+def _retry_after(resp: httpx.Response) -> float | None:
+    header = resp.headers.get("retry-after")
+    if header and header.replace(".", "", 1).isdigit():
+        return float(header)
+    m = re.search(r'retryDelay"?\s*:\s*"?(\d+(?:\.\d+)?)s', resp.text)
+    return float(m.group(1)) if m else None
+
+
 async def _startup() -> None:
     global _client, _redis
     mark_service_started(SERVICE)
@@ -152,6 +202,7 @@ async def _call_once(p: Provider, body: ChatIn) -> dict:
         await asyncio.sleep(p.timeout_s + 1)
     payload: dict[str, Any] = {
         "model": p.model, "messages": body.messages, "temperature": body.temperature, "max_tokens": body.max_tokens,
+        **p.extra_body,
     }
     if body.tools:
         payload["tools"] = body.tools
@@ -171,20 +222,45 @@ async def _call_once(p: Provider, body: ChatIn) -> dict:
         raise Retryable(f"timeout after {p.timeout_s}s") from exc
     except httpx.TransportError as exc:
         raise Retryable(f"transport error: {exc}") from exc
-    if resp.status_code == 429 or resp.status_code >= 500:
+    if resp.status_code == 429:
+        raise QuotaExceeded(f"HTTP 429: {resp.text[:200]}", _retry_after(resp))
+    if resp.status_code >= 500:
         raise Retryable(f"HTTP {resp.status_code}: {resp.text[:200]}")
     if resp.status_code >= 400:
         raise HTTPException(502, f"provider rejected request: HTTP {resp.status_code}: {resp.text[:300]}")
-    return resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        # e.g. a misconfigured base URL that serves a web page instead of the API
+        raise HTTPException(502, f"provider returned non-JSON from {resp.url} (check LLM_*_BASE_URL): "
+                                 f"{resp.text[:120]!r}") from None
+    if not isinstance(data, dict) or "choices" not in data:
+        raise HTTPException(502, f"provider response has no 'choices' (check LLM_*_BASE_URL): {str(data)[:200]}")
+    return data
 
 
 async def _call_with_retry(p: Provider, body: ChatIn) -> tuple[dict, int]:
     """Every failed attempt is a real provider failure and counts towards the breaker;
     once the breaker opens we stop retrying instead of hammering a dead provider."""
     attempt = 0
+    quota_waited = 0.0
     while True:
+        LLM_QUOTA_WAIT.labels(p.name, "pacing").inc(await p.limiter.acquire())
         try:
             return await _call_once(p, body), attempt
+        except QuotaExceeded as exc:
+            delay = exc.retry_after_s or min(10.0 * (2 ** min(attempt, 3)), 40.0)
+            if quota_waited + delay > QUOTA_MAX_WAIT_S:
+                p.breaker.failure()  # quota will not recover in time for this request
+                CIRCUIT_STATE.labels(p.name).set(STATE_VALUE[p.breaker.state])
+                raise Retryable(f"quota exhausted after waiting {quota_waited:.0f}s: {exc}") from exc
+            LLM_RETRIES.labels(p.name, "quota").inc()
+            LLM_QUOTA_WAIT.labels(p.name, "429").inc(delay)
+            log.warning("provider quota, waiting", provider=p.name, delay_s=round(delay, 1),
+                        waited_s=round(quota_waited, 1))
+            await asyncio.sleep(delay)
+            quota_waited += delay
+            attempt += 1
         except Retryable as exc:
             p.breaker.failure()
             CIRCUIT_STATE.labels(p.name).set(STATE_VALUE[p.breaker.state])
@@ -200,6 +276,9 @@ async def _call_with_retry(p: Provider, body: ChatIn) -> tuple[dict, int]:
 def _usage(data: dict, body: ChatIn) -> tuple[int, int, bool]:
     usage = data.get("usage") or {}
     pt, ct = usage.get("prompt_tokens"), usage.get("completion_tokens")
+    total = usage.get("total_tokens")
+    if pt is not None and ct is not None and total and total > pt + ct:
+        ct = total - pt  # hidden "thinking" tokens are billed as output (e.g. Gemini)
     if pt is None or ct is None:  # estimate (~4 chars/token) when the provider omits usage
         pt = sum(len(json.dumps(m)) for m in body.messages) // 4
         msg = (data.get("choices") or [{}])[0].get("message", {})

@@ -34,8 +34,9 @@ reconstructed via `/v1/runs/{id}/trace`) and `<label>.md`.
 "TruLens or equivalent": the same four RAG-triad style metrics are computed
 deterministically from the run trace instead of with an LLM judge, so they are cheap,
 reproducible and cannot be gamed by the model being judged. They are measured on the
-assessor's **first** answer (before self-verification filtered it), so they measure the
-model; what is *returned* is verified by construction.
+assessor's **first** answer that contains findings (before self-verification filtered it;
+a hand-back for missing topics has no findings and is skipped), so they measure the model;
+what is *returned* is verified by construction.
 
 | Metric | Definition |
 |---|---|
@@ -53,6 +54,13 @@ model; what is *returned* is verified by construction.
   provisions, worked example). Same scenarios, same model, `--variant v1` / `--variant v2`.
 * **L3 deliberate change** - the research agent's modifier-check step on vs off
   (`MODIFIER_SEARCH_ENABLED`), all four metrics before and after.
+
+Real-model arms run with `--reuse-model-cache`: the whole-run cache is bypassed, but model
+responses for unchanged steps are replayed from the gateway's response cache. Because the
+research loop's prompts do not depend on the assessor prompt variant, the v2 arm replays the
+v1 arm's research loop call for call and only the assessor's calls are new. That makes the
+comparison a controlled one (same dossier, only the variable under test differs) and keeps a
+22-scenario arm within a free-tier daily quota (INC-005).
 
 Results: see `eval/results/` and the summary in `docs/report.md`.
 

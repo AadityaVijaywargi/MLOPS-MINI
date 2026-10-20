@@ -15,7 +15,7 @@ flowchart LR
     PG[(Postgres<br/>runs, run_events, quarantine,<br/>feedback, quality_scores)]
   end
   subgraph agents[Boundary 3 - agent workers, scalable]
-    RS[researcher x N<br/>LangGraph: classify, tool loop,<br/>modifier check, coverage check, fallback]
+    RS[researcher x N<br/>LangGraph: classify, tool loop,<br/>modifier check, coverage check,<br/>select, fallback]
     AS[assessor x N<br/>LangGraph: assess, verify,<br/>retry / hand-back, route]
   end
   subgraph retrieval[Boundary 4 - retrieval]
@@ -88,11 +88,15 @@ Control steps that make it an agent rather than a pipeline (design approach step
 4. **coverage_check** (step 5) - if a mandatory topic (setbacks, FAR, ground coverage, height) is
    still empty, the loop resumes with a different strategy (lexical mode, single document,
    references).
-5. **fallback** - if the model is unavailable at any point: deterministic templated retrieval, the
+5. **select_provisions** - commit step: if the loop ends (finished *or* out of budget) with a
+   mandatory topic uncovered but passages retrieved, one bounded JSON call picks the binding
+   passages from the retrieved set (ids outside it are rejected). Added after a lighter real model
+   kept reading clauses and never recorded any (INC-007).
+6. **fallback** - if the model is unavailable at any point: deterministic templated retrieval, the
    dossier is marked `degraded`.
 
 **Loop bounds:** `RESEARCHER_MAX_STEPS` model turns (14), `RESEARCHER_MAX_TOOL_CALLS` (24),
-`RESEARCHER_DEADLINE_S` wall clock (120 s, checked before every model call and passed as the
+`RESEARCHER_DEADLINE_S` wall clock (420 s, sized for a paced free-tier model; checked before every model call and passed as the
 remaining budget to every timeout), LangGraph `recursion_limit` as a backstop, and 3 consecutive
 retriever failures end the loop.
 

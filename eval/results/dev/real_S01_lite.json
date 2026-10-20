@@ -1,0 +1,45 @@
+{
+  "label": "real_S01_lite",
+  "at": "2026-10-19T18:24:44.466179+00:00",
+  "variant": "default",
+  "api": "http://api:8000",
+  "summary": {
+    "scenarios": 1,
+    "errors": 0,
+    "route_accuracy": 0.0,
+    "groundedness": 1.0,
+    "context_relevance": 1.0,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0,
+    "violation_recall": 0.0,
+    "mean_latency_s": 145.1,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 31
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_23745ea2629d44ad",
+      "latency_s": 145.1,
+      "expected_route": "revise-and-recheck",
+      "route": "specialist-review",
+      "status": "failed",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 4,
+      "violation_recall": 0.0,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Run did not complete (assessor failed after 2 attempt(s): 'clause_label'). No finding is given; refer for human review.",
+      "cost_usd": 0.0,
+      "llm_calls": 31,
+      "tool_calls": 31,
+      "prompt_versions": {}
+    }
+  ]
+}

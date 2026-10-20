@@ -1,0 +1,85 @@
+{
+  "label": "trial_31lite",
+  "at": "2026-10-19T19:47:58.789637+00:00",
+  "variant": "v1",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 2,
+    "errors": 0,
+    "route_accuracy": 0.5,
+    "groundedness": 1.0,
+    "context_relevance": 0.8333,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0,
+    "violation_recall": 0.5,
+    "mean_latency_s": 122.85,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 17
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_31adcb3cbfbe4f7e",
+      "latency_s": 123.7,
+      "expected_route": "revise-and-recheck",
+      "route": "revise-and-recheck",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 0.6666666666666666,
+      "gold_missing": [
+        "ZR2015:T9"
+      ],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 1,
+      "violation_recall": 0.5,
+      "violated_found": [
+        "ZR2015:T10:ii.b"
+      ],
+      "withheld": 0,
+      "reason": "Violates RMP-2015 ZR \u00a74.1.2 Table 10 (ii)(b). Revise the proposal and re-check.",
+      "cost_usd": 0.0,
+      "llm_calls": 19,
+      "tool_calls": 14,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#b7e198ad",
+        "researcher.select": "researcher.select@v1#3299977c",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    },
+    {
+      "id": "S02",
+      "title": "Same plot and road, Stilt+GF+2 at 10.5 m, setbacks per Table 8",
+      "run_id": "run_bbaafa994c6d46eb",
+      "latency_s": 122.0,
+      "expected_route": "clear-for-submission",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": null,
+      "faithfulness": null,
+      "hallucination_rate": null,
+      "verification_attempts": 0,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess.",
+      "cost_usd": 0.0,
+      "llm_calls": 15,
+      "tool_calls": 11,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "researcher.select": "researcher.select@v1#3299977c",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    }
+  ]
+}

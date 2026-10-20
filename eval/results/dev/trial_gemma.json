@@ -1,0 +1,79 @@
+{
+  "label": "trial_gemma",
+  "at": "2026-10-19T19:42:13.445778+00:00",
+  "variant": "v1",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 2,
+    "errors": 0,
+    "route_accuracy": 0.0,
+    "groundedness": null,
+    "context_relevance": 0.6667,
+    "faithfulness": null,
+    "hallucination_rate": null,
+    "violation_recall": 0.0,
+    "mean_latency_s": 90.05,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 3.5
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_3d1bf7d6ff284caa",
+      "latency_s": 177.9,
+      "expected_route": "revise-and-recheck",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 0.3333333333333333,
+      "gold_missing": [
+        "ZR2015:T10:ii.b",
+        "ZR2015:T9"
+      ],
+      "groundedness": null,
+      "faithfulness": null,
+      "hallucination_rate": null,
+      "verification_attempts": 0,
+      "violation_recall": 0.0,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess.",
+      "cost_usd": 0.0,
+      "llm_calls": 6,
+      "tool_calls": 4,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#b7e198ad",
+        "researcher.classify": "researcher.classify@v1#d7328e39"
+      }
+    },
+    {
+      "id": "S02",
+      "title": "Same plot and road, Stilt+GF+2 at 10.5 m, setbacks per Table 8",
+      "run_id": "run_6c597a8ae068409d",
+      "latency_s": 2.2,
+      "expected_route": "clear-for-submission",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": null,
+      "faithfulness": null,
+      "hallucination_rate": null,
+      "verification_attempts": 0,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess.",
+      "cost_usd": 0.0,
+      "llm_calls": 1,
+      "tool_calls": 4,
+      "prompt_versions": {
+        "researcher.classify": "researcher.classify@v1#d7328e39"
+      }
+    }
+  ]
+}

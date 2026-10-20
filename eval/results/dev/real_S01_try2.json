@@ -1,0 +1,48 @@
+{
+  "label": "real_S01_try2",
+  "at": "2026-10-19T17:38:08.936939+00:00",
+  "variant": "default",
+  "api": "http://api:8000",
+  "summary": {
+    "scenarios": 1,
+    "errors": 0,
+    "route_accuracy": 0.0,
+    "groundedness": null,
+    "context_relevance": 1.0,
+    "faithfulness": null,
+    "hallucination_rate": null,
+    "violation_recall": 0.0,
+    "mean_latency_s": 14.3,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 4
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_062a88fbd3ad415c",
+      "latency_s": 14.3,
+      "expected_route": "revise-and-recheck",
+      "route": "specialist-review",
+      "status": "escalated",
+      "route_correct": false,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": null,
+      "faithfulness": null,
+      "hallucination_rate": null,
+      "verification_attempts": 0,
+      "violation_recall": 0.0,
+      "violated_found": [],
+      "withheld": 0,
+      "reason": "Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess.",
+      "cost_usd": 0.0,
+      "llm_calls": 4,
+      "tool_calls": 12,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "researcher.classify": "researcher.classify@v1#d7328e39"
+      }
+    }
+  ]
+}

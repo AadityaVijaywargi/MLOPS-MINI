@@ -1,0 +1,53 @@
+{
+  "label": "real_S01_select",
+  "at": "2026-10-19T18:59:05.410218+00:00",
+  "variant": "v1",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 1,
+    "errors": 0,
+    "route_accuracy": 1.0,
+    "groundedness": 1.0,
+    "context_relevance": 1.0,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.25,
+    "violation_recall": 0.5,
+    "mean_latency_s": 35.5,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 11
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "title": "Section 4.1 reference case - small plot, narrow road, Stilt+GF+3 at 12.5 m",
+      "run_id": "run_be56015f168a4a03",
+      "latency_s": 35.5,
+      "expected_route": "revise-and-recheck",
+      "route": "revise-and-recheck",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.25,
+      "verification_attempts": 2,
+      "violation_recall": 0.5,
+      "violated_found": [
+        "ZR2015:T10:ii.b"
+      ],
+      "withheld": 0,
+      "reason": "Violates RMP-2015 ZR \u00a74.1.2 Table 10 (ii)(b). Revise the proposal and re-check.",
+      "cost_usd": 0.0,
+      "llm_calls": 11,
+      "tool_calls": 24,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v1#b7e198ad",
+        "researcher.select": "researcher.select@v1#3299977c",
+        "researcher.classify": "researcher.classify@v1#d7328e39"
+      }
+    }
+  ]
+}

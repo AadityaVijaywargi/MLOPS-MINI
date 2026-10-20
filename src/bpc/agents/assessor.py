@@ -183,7 +183,9 @@ async def route(state: AState, config: RunnableConfig) -> dict:
     passages = _passages(dossier)
     findings_raw = state.get("findings", [])
     ok = set(state.get("ok_idx", []))
-    verified = [findings_raw[i] for i in sorted(ok)]
+    # The model's findings carry only provision ids; the router names clauses by label.
+    verified = [{**findings_raw[i], "clause_label": passages[findings_raw[i]["provision_id"]]["clause_label"]}
+                for i in sorted(ok)]
     withheld = len(findings_raw) - len(verified)
     rep = state.get("report", {})
     missing = [e.split(": ", 1)[1] for e in rep.get("errors", []) if e.startswith("missing mandatory topic")]

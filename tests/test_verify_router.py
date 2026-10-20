@@ -15,7 +15,8 @@ PROPOSAL = {"plot": {"width_m": 9, "depth_m": 12, "area_sqm": 108}, "building": 
 
 def f(**kw):
     base = {"provision_id": "ZR2015:T10:ii.b", "topic": "height", "status": "violated", "comparison": "<=",
-            "required_value": 11.5, "proposed_value": 12.5, "quote": "the maximum height is restricted to 11.5 meters",
+            "required_value": 11.5, "proposed_value": 12.5, "proposal_field": "building.proposed_height_m",
+            "quote": "the maximum height is restricted to 11.5 meters",
             "clause_label": "ZR T10 (ii)(b)"}
     base.update(kw)
     return base
@@ -42,11 +43,24 @@ def test_untraceable_number_and_inconsistent_status():
 
 def test_derivation_from_percentage():
     finding = f(provision_id="ZR2015:T8", topic="setbacks", quote="Above 9.0 m 8 % 8% 12% 8 %", required_value=1.44,
-                proposed_value=1.5, comparison=">=", status="satisfied", derivation="12% * 12")
+                proposed_value=1.5, proposal_field="setbacks.front_m", comparison=">=", status="satisfied",
+                derivation="12% * 12")
     rep = verify_findings([finding], PASSAGES, PROPOSAL, ("setbacks",))
     assert rep.passed, rep.errors()
     assert abs(safe_eval("0.12 x 12") - 1.44) < 1e-9
     assert safe_eval("max(1.0, 0.08 * 9)") == 1.0
+
+
+def test_derivation_written_as_comparison():
+    # Real models put the comparison in `derivation`; the evaluable side must equal the
+    # required value, and every number on both sides must still be traceable.
+    ok = f(derivation="12.5 <= 11.5")
+    assert verify_findings([ok], PASSAGES, PROPOSAL, ("height",)).passed
+    words = f(derivation="proposed height 12.5 <= 11.5")
+    assert verify_findings([words], PASSAGES, PROPOSAL, ("height",)).passed
+    invented = f(derivation="12.5 <= 13.0")
+    errs = " ".join(verify_findings([invented], PASSAGES, PROPOSAL, ("height",)).errors())
+    assert "number_untraceable" in errs
 
 
 def _decide(findings, **kw):
@@ -70,6 +84,14 @@ def test_route_clear_revise_specialist():
     assert _decide(clear[:2], missing_topics=["ground_coverage", "height"]).route == Route.specialist
 
 
+def test_revise_when_model_finding_has_no_clause_label():
+    # Real models return provision ids only; a violated finding must still route (regression).
+    clear = [_ok(t) for t in MANDATORY_TOPICS]
+    bare = {"provision_id": "ZR2015:T10:ii.b", "topic": "height", "status": "violated"}
+    d = _decide(clear + [bare])
+    assert d.route == Route.revise and "ZR2015:T10:ii.b" in d.reason
+
+
 def test_precedence_supersedes_byelaw_on_governed_topic():
     findings = [_ok(t) for t in MANDATORY_TOPICS] + [_ok("setbacks", "violated", "BBL2003:T5")]
     d = _decide(findings)
@@ -79,3 +101,15 @@ def test_precedence_supersedes_byelaw_on_governed_topic():
 def test_unresolved_conflict_escalates():
     conflicts = [{"provision_ids": ["BBL2003:s16.0", "BBL2003:T13"], "topic": "parking", "description": "differ"}]
     assert _decide([_ok(t) for t in MANDATORY_TOPICS], conflicts=conflicts).route == Route.specialist
+
+
+def test_proposed_value_must_match_its_proposal_field():
+    # The rear setback compared using a number that is only the side setback (real-model S06 defect).
+    prop = {**PROPOSAL, "setbacks": {"front_m": 2.5, "rear_m": 1.5, "left_m": 1.0}}
+    wrong = f(provision_id="ZR2015:T8", topic="setbacks", quote="Above 9.0 m 8 % 8% 12% 8 %", required_value=1.44,
+              proposed_value=1.0, proposal_field="setbacks.rear_m", comparison=">=", status="violated",
+              derivation="8% * 18")
+    errs = " ".join(verify_findings([wrong], PASSAGES, prop, ("setbacks",)).errors())
+    assert "proposed_value_mismatch" in errs
+    unnamed = f(proposal_field=None)
+    assert "proposal_field_missing" in " ".join(verify_findings([unnamed], PASSAGES, PROPOSAL, ("height",)).errors())
