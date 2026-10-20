@@ -1,0 +1,88 @@
+{
+  "label": "real_v2_part1_rerun0143",
+  "at": "2026-10-20T20:18:54.950563+00:00",
+  "variant": "v2",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 2,
+    "errors": 0,
+    "provider_degraded": 0,
+    "scored": 2,
+    "route_accuracy": 1.0,
+    "groundedness": 1.0,
+    "context_relevance": 1.0,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0,
+    "violation_recall": 1.0,
+    "mean_latency_s": 77.25,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 27
+  },
+  "rows": [
+    {
+      "id": "S04",
+      "title": "600 sq.m plot, coverage 68% exceeds 65%",
+      "run_id": "run_c098b371c6b04b49",
+      "latency_s": 92.3,
+      "expected_route": "revise-and-recheck",
+      "route": "revise-and-recheck",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 2,
+      "violation_recall": 1.0,
+      "violated_found": [
+        "ZR2015:T10"
+      ],
+      "withheld": 0,
+      "provider_degraded": false,
+      "reason": "Violates RMP-2015 ZR \u00a74.1.2 Table 10. Revise the proposal and re-check.",
+      "cost_usd": 0.0,
+      "llm_calls": 35,
+      "tool_calls": 28,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v2#caa6163d",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    },
+    {
+      "id": "S08",
+      "title": "14 m building on 12 m road with 5 m all-round setbacks (Table 9)",
+      "run_id": "run_dbbea7aa16b54912",
+      "latency_s": 62.2,
+      "expected_route": "clear-for-submission",
+      "route": "clear-for-submission",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 1,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "provider_degraded": false,
+      "reason": "Every mandatory topic has a verified finding and no provision is violated. Clear for submission, subject to professional review.",
+      "cost_usd": 0.0,
+      "llm_calls": 19,
+      "tool_calls": 14,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v2#caa6163d",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39",
+        "researcher.modifiers": "researcher.modifiers@v1#2872ae55"
+      }
+    }
+  ]
+}
