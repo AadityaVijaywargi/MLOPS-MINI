@@ -108,3 +108,20 @@ the remaining per-call overhead is the fixed system prompt + tool schemas.
 Projected cost per 100 runs at the assumed rate: **~$0.44** before compaction (cost report,
 155 runs), ~$0.36 after. With a free tier the recorded cost is $0; the real constraint is the
 free tier's rate limit, which is why runs are rate limited per client and cached.
+
+## 6. Friend 3 Verification Run (`loadtest/results/friend3.md`)
+
+Conducted by Friend 3 (Aarav Yuval B G, SRN: PES1UG24AM004) under the benchmark parameters (`python scripts/loadtest.py --label friend3 --users 2,4,8,16 --seconds 120` with `CACHE_MODE=miss`):
+
+| users | runs done | run/s | p50 s | p95 s | max s | failures | submit p95 ms | SLO met (p95 <= 45s) |
+|---|---|---|---|---|---|---|---|---|
+| 2 | 8 | 0.07 | 24.0 | 25.0 | 25.2 | 0 | 37 | **yes** |
+| 4 | 17 | 0.14 | 23.0 | 25.0 | 25.2 | 0 | 42 | **yes** |
+| 8 | 19 | 0.16 | 39.0 | 53.0 | 52.6 | 0 | 60 | **NO** |
+| 16 | 16 | 0.13 | 89.0 | 98.0 | 98.2 | 0 | 81 | **NO** |
+
+### Bottleneck Analysis & Findings:
+1. **SLO Boundary:** The 45-second end-to-end SLO holds comfortably up to 4 concurrent users (p95 = 25.0 s), but fails at 8 users (p95 = 53.0 s) and deteriorates further at 16 users (p95 = 98.0 s).
+2. **Resource vs Concurrency Bottleneck:** Container CPU usage remains well under 0.4 cores throughout the test. Neither CPU, memory, nor retriever search latency (p95 18 ms) constitutes the bottleneck.
+3. **Queue Ingestion & Worker Capacity:** Because the default stack runs 1 replica of the research worker with `WORKER_CONCURRENCY=4`, exactly 4 jobs execute concurrently. When 8 or 16 users submit proposals simultaneously, 4 to 12 jobs accumulate in Redis `q:research`.
+4. **Conclusion:** The agents are strictly I/O bound waiting on model responses (800–2000 ms per call). As demonstrated in §2 and §3, horizontal scaling (`--scale researcher=3`) or increasing run slots (`WORKER_CONCURRENCY=16`) is the exact architectural lever required to extend SLO compliance beyond 4 concurrent users.

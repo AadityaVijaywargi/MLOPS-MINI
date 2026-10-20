@@ -84,3 +84,44 @@ docker compose exec redis redis-cli LLEN q:research:processing
 | Rejected submissions | `curl -s localhost:8000/v1/quarantine` |
 | Index freshness | Grafana "Index age / chunks", or `docker compose exec retriever python -c "import json;print(json.load(open('/index/meta.json'))['built_at'])"` |
 | Re-index after a corpus change | `docker compose run --rm indexer && docker compose exec retriever python -c "import urllib.request;urllib.request.urlopen(urllib.request.Request('http://localhost:8001/admin/reload',method='POST'))"` |
+
+---
+
+## 3. Operational Rehearsal Log: Scenario 1 (Provider Outage & Circuit Breaker)
+
+**Rehearsal Operator:** Friend 3 (Aarav Yuval B G, SRN: PES1UG24AM004)
+**Date:** 2026-10-20
+**Target Failure Mode:** §1 Model provider unavailable or rate-limited
+
+### Step-by-Step Execution:
+
+1. **Baseline State Verification:**
+   - Gateway health checked via `GET http://llm-gateway:8002/admin/circuit`.
+   - Initial state: `state: 'closed'`, `consecutive_failures: 0`, `fault: 'none'`.
+2. **Fault Injection:**
+   - Injected primary provider failure via `POST http://llm-gateway:8002/admin/fault` with payload `{"mode": "down"}`.
+   - Gateway acknowledged fault mode update to `"down"`.
+3. **Trigger & Resilience Mechanism:**
+   - Submitted unique proposal `run_cbbaa291da5d41b4`.
+   - Observed gateway retry sequence with exponential backoff:
+     - Attempt 1: backoff delay 2.04 s (`error: "fault injection: provider down"`)
+     - Attempt 2: backoff delay 8.40 s
+     - Attempt 3: backoff delay 14.74 s
+     - Attempt 4: backoff delay 31.49 s
+   - Upon the 5th failure (`CIRCUIT_FAILURE_THRESHOLD=5`), the circuit breaker transitioned to `state: 'open'`.
+4. **Graceful Degradation Verification:**
+   - Run `run_cbbaa291da5d41b4` completed with status `escalated` and route `specialist-review`.
+   - Reason emitted: `"Model provider unavailable (circuit open / outage): candidate provisions were retrieved but no finding was made. Degraded mode - a person must assess."`
+   - Verified that `degraded: true` was set, findings were safely withheld (`findings: []`) to prevent false certifications, and 8 candidate retrieved provisions were preserved for human review.
+5. **System Recovery & Circuit Reset:**
+   - Cleared fault via `POST /admin/fault` (`{"mode": "none"}`).
+   - Reset circuit via `POST /admin/circuit/reset`.
+   - Gateway confirmed transition: `[{"state": "open"}, {"state": "closed"}]` with `consecutive_failures: 0`.
+   - Submitted unique verification proposal `run_fe5771ae1e484efa` to test end-to-end recovery against the live Gemini provider.
+   - Polled until terminal state was reached:
+     - **Status:** `completed`
+     - **Route:** `clear-for-submission`
+     - **Degraded flag:** `false`
+     - **Findings:** 7 verified findings recorded across all mandatory topics (setbacks, height, FAR, ground coverage, parking).
+     - **Reason:** `"Every mandatory topic has a verified finding and no provision is violated. Clear for submission, subject to professional review."`
+     - **Observed Resilience:** During the assessment phase, the gateway seamlessly absorbed and retried an intermittent upstream `HTTP 503 ("model experiencing high demand")`, and the assessor executed a standard verification retry, successfully reaching full compliance resolution without human intervention.

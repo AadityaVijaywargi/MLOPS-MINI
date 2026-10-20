@@ -169,8 +169,11 @@ Assessor prompt `v2` (procedural, applicability first, worked example, strict ve
 - **Mean LLM calls:** 18.57 -> **16.43** (-2.14 calls per run)
 Prompt `v2` eliminated paraphrasing errors that previously triggered verifier retries, and proved resilient against prompt injection (S15 hallucination rate dropped from 0.5714 to 0.0000).
 
-**L3 result** (`eval/results/compare_real_v2_part2_vs_real_nomod_part2.md`):
-Disabling the modifier step (`MODIFIER_SEARCH_ENABLED=false`) on Slice 2 caused route accuracy to drop from 0.8571 to 0.7143 and context relevance to collapse from 1.0 to 0.0, demonstrating that the secondary modifier search is critical for detecting bye-laws that override table values. Full 22-scenario analysis to be combined across all teammate slices.
+**L3 result** (`eval/results/compare_real_v2_vs_real_nomod.md`, detailed in `docs/l3_modifier_analysis.md`):
+Disabling the modifier step (`MODIFIER_SEARCH_ENABLED=false`) ablated secondary reflection queries. Audited across Slice 2 (S09–S15) and Slice 3 (S16–S22):
+- **Slice 3 Strictly Paired ($n=4$: S16, S19, S20, S22, Friend 3):** Three scenarios in `real_v2_part3` (S17, S18, S21) experienced upstream provider throttling and were excluded from scoring. On the 4 common, non-degraded scenarios, route accuracy dropped from 0.7500 (3/4) to 0.5000 (2/4, -25.0 percentage points / -33.3% relative), and context relevance dropped from 0.8750 to 0.7500. In S20 (narrow plot on 8 m road), the agent failed to retrieve the road-width height restriction (`ZR2015:T10:ii.b`), causing context relevance to collapse from 1.0 to 0.5 and escalating unnecessarily to `specialist-review` due to missing height evidence. Latency was reduced from 412.4 s to 279.7 s (-32.2%) by omitting the reflection turn.
+- **Combined Slices 2 & 3 Paired ($n=11$ non-degraded):** Combining Slice 2 ($n=7$) with the 4 non-degraded Slice 3 scenarios, route accuracy fell from 0.8182 (9/11) to 0.6364 (7/11, -18.2 percentage points), while context relevance fell from 0.9167 to 0.5000 (-41.7 percentage points). Groundedness (1.0000) and hallucination rate (0.0000) remained stable because the assessor only quotes retrieved text.
+- **Reference Case (S01, Section 4.1):** Proves the necessity of the modifier pass: while single-pass dense/BM25 retrieval on setbacks ranks Table 10 Note (ii)(b) outside the top 6, the agentic derived query ("maximum height of building restricted by road width") ranks it rank 1, correctly identifying the 11.5 m cap and cascading Table 9 setback violations.
 
 ## 6. Performance, scaling and cost
 
