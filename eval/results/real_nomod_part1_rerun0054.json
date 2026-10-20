@@ -1,0 +1,54 @@
+{
+  "label": "real_nomod_part1_rerun0054",
+  "at": "2026-10-20T20:07:07.827906+00:00",
+  "variant": "v2",
+  "api": "http://api:8000",
+  "reuse_model_cache": true,
+  "summary": {
+    "scenarios": 1,
+    "errors": 0,
+    "provider_degraded": 0,
+    "scored": 1,
+    "route_accuracy": 1.0,
+    "groundedness": 1.0,
+    "context_relevance": 1.0,
+    "faithfulness": 1.0,
+    "hallucination_rate": 0.0,
+    "violation_recall": null,
+    "mean_latency_s": 177.0,
+    "mean_cost_usd": 0.0,
+    "mean_llm_calls": 27
+  },
+  "rows": [
+    {
+      "id": "S06",
+      "title": "12 x 18 m plot on 12 m road, percentage setbacks satisfied",
+      "run_id": "run_68be65a8bc75448d",
+      "latency_s": 177.0,
+      "expected_route": "clear-for-submission",
+      "route": "clear-for-submission",
+      "status": "completed",
+      "route_correct": true,
+      "context_relevance": 1.0,
+      "gold_missing": [],
+      "groundedness": 1.0,
+      "faithfulness": 1.0,
+      "hallucination_rate": 0.0,
+      "verification_attempts": 3,
+      "violation_recall": null,
+      "violated_found": [],
+      "withheld": 0,
+      "provider_degraded": false,
+      "reason": "Every mandatory topic has a verified finding and no provision is violated. Clear for submission, subject to professional review.",
+      "cost_usd": 0.0,
+      "llm_calls": 27,
+      "tool_calls": 21,
+      "prompt_versions": {
+        "researcher.agent": "researcher.agent@v1#933b9bca",
+        "assessor.findings": "assessor.findings@v2#caa6163d",
+        "researcher.select": "researcher.select@v1#c66f9889",
+        "researcher.classify": "researcher.classify@v1#d7328e39"
+      }
+    }
+  ]
+}
