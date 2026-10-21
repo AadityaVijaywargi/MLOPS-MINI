@@ -116,10 +116,10 @@ curl -s "localhost:8000/v1/admin/cost-report?hours=24"
 
 | Demo | How |
 |---|---|
-| Malformed request quarantined, no run started | web client example "Malformed", then `GET /v1/quarantine`; `runs` count unchanged |
-| Prompt injection | web client example "Prompt injection in notes" |
-| Outside corpus -> escalation | example "Outside corpus (telecom tower)" |
-| Self-verification catches an unsupported answer | `docker compose exec llm-stub python -c "import urllib.request,json;urllib.request.urlopen(urllib.request.Request('http://localhost:8003/admin/mode',data=json.dumps({'mode':'hallucinate_once'}).encode(),headers={'Content-Type':'application/json'}))"` then submit with `"options": {"bypass_cache": true}`; trace shows verification `failed` then a retry |
+| Malformed request quarantined, no run started | web client scenario "Malformed request", then `GET /v1/quarantine`; `runs` count unchanged |
+| Prompt injection | web client scenario "Prompt injection" (the Validate stage turns amber with the guardrail flag) |
+| Outside corpus -> escalation | web client scenario "Outside the corpus" |
+| Self-verification catches an unsupported answer | `docker compose exec llm-stub python -c "import urllib.request,json;urllib.request.urlopen(urllib.request.Request('http://localhost:8003/admin/mode',data=json.dumps({'mode':'hallucinate_once'}).encode(),headers={'Content-Type':'application/json'}))"` then submit with "Force a fresh run" ticked; the Self-verification panel shows `failed` then a retry |
 | Circuit breaker + degradation | `docker compose stop llm-stub` (or `POST /admin/fault` on the gateway), submit; Grafana circuit state goes to open, run returns degraded `specialist-review` with candidate provisions |
 
 ## Troubleshooting
