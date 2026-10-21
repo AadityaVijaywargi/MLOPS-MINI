@@ -2,9 +2,34 @@
 
 - **Author / Teammate:** Friend 3 (Aarav Yuval B G, SRN: PES1UG24AM004)
 - **Evaluation Set:** Slice 3 (Scenarios S16–S22) and Aggregate Slices 2 & 3
-- **Model:** `gemini-3.5-flash-lite` via OpenAI-compatible gateway (`https://generativelanguage.googleapis.com/v1beta/openai`)
+- **Model:** the team's agreed model via its OpenAI-compatible endpoint (shared privately, D4)
 - **Configuration Variable:** `MODIFIER_SEARCH_ENABLED=true` (Prompt v2) vs `MODIFIER_SEARCH_ENABLED=false` (No-Mod)
 - **Execution Logs:** `eval/results/real_v2_part3.json` vs `eval/results/real_nomod_part3.json`
+
+---
+
+## 0. Final Result After the Slice 3 Reruns (2026-10-21)
+
+The sections below analyse the first slice 3 run, where only 4 scenarios could be scored in both
+arms. S16-S21 were then rerun in all three arms on one machine (`real_*_part3_rerun1347`). All 22
+scenarios are now scored in every arm, and the merged table is `eval/results/compare_real_v2_vs_real_nomod.md`:
+
+| metric | modifier on (v2) | modifier off | delta |
+|---|---|---|---|
+| route accuracy | **0.8636 (19/22)** | 0.7273 (16/22) | -0.136 |
+| violation recall | **0.8182** | 0.5455 | -0.273 |
+| context relevance | **0.9706** | 0.8529 | -0.118 |
+| groundedness | **1.0000** | 0.9773 | -0.023 |
+| hallucination rate | **0.0000** | 0.0292 | +0.029 |
+| mean latency | 116.1 s | **86.2 s** | -29.9 s |
+| mean LLM calls | 19.5 | **17.6** | -2.0 |
+
+The modifier step still pays off overall, but the gain comes from slices 1 and 2. Turning it off
+breaks S05, S07, S08 and S09, and S09 and S10 lose `ZR2015:T10:ii.c`. In the rerun, slice 3 shows no
+benefit: with the modifier off, **S20 retrieved `ZR2015:T10:ii.b` and routed correctly**, so the S20
+regression analysed in section 3 did not reproduce. S17 went the other way: with the modifier on
+it escalated to `specialist-review` (no verified height finding). Slice 3 route accuracy is 0.714 with the
+modifier on and 0.857 with it off.
 
 ---
 

@@ -159,7 +159,31 @@ excluded from every metric. The slices are combined with `run_eval --merge`:
 | `real_v2` | v2 | on | L2 variant; L3 "before" |
 | `real_nomod` | v2 | off | L3 "after" (the deliberate change) |
 
-**L2 result** (`eval/results/compare_real_v1_part2_vs_real_v2_part2.md`, detailed in `docs/l2_prompt_comparison.md`):
+All three slices are merged into `eval/results/real_v1|real_v2|real_nomod.{json,md}`: 22/22
+scenarios scored in every arm, none degraded. Slice 3's degraded runs (S16-S21) were rerun on
+2026-10-21 with all three arms on one machine (`real_*_part3_rerun1347`); merge prefers those rows,
+so every scenario's three arms still come from one machine. Context relevance is averaged over the
+17 scenarios that have gold clauses, violation recall over the 11 that expect a violation.
+
+**L2 result, full set** (`eval/results/compare_real_v1_vs_real_v2.md`):
+
+| metric | v1 | v2 | delta |
+|---|---|---|---|
+| route accuracy | 0.7273 (16/22) | **0.8636 (19/22)** | +0.136 |
+| groundedness | 0.9080 | **1.0000** | +0.092 |
+| hallucination rate | 0.0920 | **0.0000** | -0.092 |
+| context relevance | 0.8529 | **0.9706** | +0.118 |
+| violation recall | 0.5455 | **0.8182** | +0.273 |
+| faithfulness | **0.9697** | 0.9069 | -0.063 |
+| mean latency | 124.7 s | 116.1 s | -8.5 s |
+| mean LLM calls | 18.5 | 19.5 | +1.0 |
+
+v2 fixes four routes (S02, S05, S07, S09) and loses one (S17, where it escalates for want of a
+verified height finding). It removes every hallucinated citation; the price is a small faithfulness
+drop (arithmetic checks on S09, S12, S16). By slice, route accuracy goes 0.625 -> 1.000 (slice 1),
+0.714 -> 0.857 (slice 2) and 0.857 -> 0.714 (slice 3).
+
+**L2 result, slice 2 detail** (`eval/results/compare_real_v1_part2_vs_real_v2_part2.md`, detailed in `docs/l2_prompt_comparison.md`):
 Assessor prompt `v2` (procedural, applicability first, worked example, strict verbatim quotes) significantly outperformed baseline `v1` on Slice 2 (S09–S15):
 - **Groundedness:** 0.8801 -> **1.0000** (+13.6%)
 - **Hallucination rate:** 0.1199 -> **0.0000** (-100% reduction)
@@ -169,10 +193,30 @@ Assessor prompt `v2` (procedural, applicability first, worked example, strict ve
 - **Mean LLM calls:** 18.57 -> **16.43** (-2.14 calls per run)
 Prompt `v2` eliminated paraphrasing errors that previously triggered verifier retries, and proved resilient against prompt injection (S15 hallucination rate dropped from 0.5714 to 0.0000).
 
-**L3 result** (`eval/results/compare_real_v2_vs_real_nomod.md`, detailed in `docs/l3_modifier_analysis.md`):
-Disabling the modifier step (`MODIFIER_SEARCH_ENABLED=false`) ablated secondary reflection queries. Audited across Slice 2 (S09–S15) and Slice 3 (S16–S22):
-- **Slice 3 Strictly Paired ($n=4$: S16, S19, S20, S22, Friend 3):** Three scenarios in `real_v2_part3` (S17, S18, S21) experienced upstream provider throttling and were excluded from scoring. On the 4 common, non-degraded scenarios, route accuracy dropped from 0.7500 (3/4) to 0.5000 (2/4, -25.0 percentage points / -33.3% relative), and context relevance dropped from 0.8750 to 0.7500. In S20 (narrow plot on 8 m road), the agent failed to retrieve the road-width height restriction (`ZR2015:T10:ii.b`), causing context relevance to collapse from 1.0 to 0.5 and escalating unnecessarily to `specialist-review` due to missing height evidence. Latency was reduced from 412.4 s to 279.7 s (-32.2%) by omitting the reflection turn.
-- **Combined Slices 2 & 3 Paired ($n=11$ non-degraded):** Combining Slice 2 ($n=7$) with the 4 non-degraded Slice 3 scenarios, route accuracy fell from 0.8182 (9/11) to 0.6364 (7/11, -18.2 percentage points), while context relevance fell from 0.9167 to 0.5000 (-41.7 percentage points). Groundedness (1.0000) and hallucination rate (0.0000) remained stable because the assessor only quotes retrieved text.
+**L3 result, full set** (`eval/results/compare_real_v2_vs_real_nomod.md`, detailed in `docs/l3_modifier_analysis.md`):
+Disabling the modifier step (`MODIFIER_SEARCH_ENABLED=false`) removes the reflection pass that looks for overriding provisions.
+
+| metric | modifier on (v2) | modifier off | delta |
+|---|---|---|---|
+| route accuracy | **0.8636 (19/22)** | 0.7273 (16/22) | -0.136 |
+| violation recall | **0.8182** | 0.5455 | -0.273 |
+| context relevance | **0.9706** | 0.8529 | -0.118 |
+| groundedness | **1.0000** | 0.9773 | -0.023 |
+| hallucination rate | **0.0000** | 0.0292 | +0.029 |
+| faithfulness | 0.9069 | 0.8915 | -0.015 |
+| mean latency | 116.1 s | **86.2 s** | -29.9 s (-26%) |
+| mean LLM calls | 19.5 | **17.6** | -2.0 |
+
+- **Where it matters:** turning the modifier off breaks four routes (S05, S07, S08, S09) and fixes one
+  (S17). Context relevance falls only on S09 and S10, both missing `ZR2015:T10:ii.c` - exactly the
+  kind of cross-referenced cap the modifier exists to find. By slice, route accuracy goes 1.000 ->
+  0.625 (slice 1), 0.857 -> 0.714 (slice 2) and 0.714 -> 0.857 (slice 3).
+- **Slice 3 shows no benefit.** Friend 3's first slice 3 run (`real_*_part3`, 4 scenarios scorable in
+  both arms) showed a drop on S20, with `ZR2015:T10:ii.b` missed when the modifier was off. The full
+  rerun did not reproduce it: with the modifier off, S20 retrieved every gold clause and routed
+  correctly. Those scenarios mostly hinge on primary tables the first research pass already finds.
+  Friend 3's partial-data analysis is kept in `docs/l3_modifier_comparison.md`.
+- **Cost of the step:** about 2 LLM calls and 30 s per run.
 - **Reference Case (S01, Section 4.1):** Proves the necessity of the modifier pass: while single-pass dense/BM25 retrieval on setbacks ranks Table 10 Note (ii)(b) outside the top 6, the agentic derived query ("maximum height of building restricted by road width") ranks it rank 1, correctly identifying the 11.5 m cap and cascading Table 9 setback violations.
 
 ## 6. Performance, scaling and cost

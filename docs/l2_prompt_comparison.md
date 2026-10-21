@@ -2,7 +2,7 @@
 
 **Author / Teammate:** Friend 2 (Dilipan Y)  
 **Evaluation Set:** Slice 2 (Scenarios S09–S15)  
-**Model:** `gemini-3.5-flash-lite` via OpenAI-compatible gateway (`https://generativelanguage.googleapis.com/v1beta/openai`)  
+**Model:** the team's agreed model via its OpenAI-compatible endpoint (shared privately, D4)  
 **Artifacts compared:** `prompts/assessor.findings.v1.yaml` vs `prompts/assessor.findings.v2.yaml`  
 **Execution logs:** `eval/results/real_v1_part2.json` vs `eval/results/real_v2_part2.json`  
 
