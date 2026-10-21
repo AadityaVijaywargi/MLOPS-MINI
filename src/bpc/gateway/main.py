@@ -360,7 +360,8 @@ async def health():
 
 @app.get("/admin/circuit")
 async def circuit():
-    return {"providers": [p.breaker.snapshot() | {"fault": p.fault} for p in PROVIDERS]}
+    return {"providers": [p.breaker.snapshot() | {"fault": p.fault, "host": httpx.URL(p.base_url).host}
+                          for p in PROVIDERS]}
 
 
 @app.post("/admin/circuit/reset")

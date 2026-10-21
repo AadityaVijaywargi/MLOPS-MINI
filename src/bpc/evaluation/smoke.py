@@ -66,6 +66,11 @@ def stub_mode(c: httpx.Client, mode: str) -> None:
     c.post(f"{STUB}/admin/mode", json={"mode": mode})
 
 
+def stub_is_primary(c: httpx.Client) -> bool:
+    providers = c.get(f"{GATEWAY}/admin/circuit").json()["providers"]
+    return bool(providers) and providers[0].get("host") == httpx.URL(STUB).host
+
+
 def check_valid(c):
     r = submit(c, proposal("S01", options={"prompt_variant": "default", "bypass_cache": True}))
     s = wait(c, r.json()["run_id"])
@@ -170,13 +175,18 @@ def check_feedback_cost(c):
 CHECKS = {"valid": check_valid, "malformed": check_malformed, "injection": check_injection, "outside": check_outside,
           "verification": check_verification, "circuit": check_circuit, "cache": check_cache,
           "rate_limit": check_rate_limit, "feedback_cost": check_feedback_cost}
+STUB_ONLY = {"verification", "circuit"}  # they drive the stub's failure modes
 
 
 def main() -> int:
     names = sys.argv[1:] or list(CHECKS)
     failed = 0
     with httpx.Client(timeout=30) as c:
+        on_stub = stub_is_primary(c)
         for n in names:
+            if n in STUB_ONLY and not on_stub:
+                print(f"[SKIP] {n:14s}   n/a  needs the stub as the primary provider", flush=True)
+                continue
             t0 = time.time()
             try:
                 ok, detail = CHECKS[n](c)
