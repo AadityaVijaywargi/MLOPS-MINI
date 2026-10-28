@@ -61,4 +61,4 @@ Top-6 results from `/v1/search` for three phrasings (2026-10-19, index of 881 ch
 A query that already contains every variable ("...road width 6 m height 12.5 m...") also finds
 it, but a request phrased about setbacks does not. That is why the research agent has an
 explicit modifier-check step that derives "<limit> restricted by <variable>" queries from the
-provisions it has already read (see `docs/architecture.md`).
+provisions it has already read, backed by a deterministic variable-interaction safety net (see `docs/architecture.md`).

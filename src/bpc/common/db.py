@@ -140,13 +140,16 @@ async def record_event(
     )
 
 
-async def update_run(pool: asyncpg.Pool, run_id: str, **fields: Any) -> None:
+async def update_run(pool: asyncpg.Pool, run_id: str, guard_terminal: bool = False, **fields: Any) -> None:
     if not fields:
         return
     cols = list(fields)
     sets = ", ".join(f"{c} = ${i + 2}" for i, c in enumerate(cols))
+    where = "WHERE run_id = $1"
+    if guard_terminal:
+        where += " AND status NOT IN ('completed', 'failed', 'escalated')"
     await pool.execute(
-        f"UPDATE runs SET {sets}, updated_at = now() WHERE run_id = $1", run_id, *[fields[c] for c in cols]
+        f"UPDATE runs SET {sets}, updated_at = now() {where}", run_id, *[fields[c] for c in cols]
     )
 
 

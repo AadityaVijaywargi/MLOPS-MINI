@@ -129,6 +129,27 @@ async def llm_chat(
     return data["message"]
 
 
+def _strip_trailing_commas(candidate: str) -> str:
+    """Safely strip trailing commas before closing braces/brackets without modifying
+    string literals containing commas, braces, or brackets."""
+    strings: list[str] = []
+
+    def repl(m: re.Match) -> str:
+        strings.append(m.group(0))
+        return f'"__BPC_STR_{len(strings) - 1}__"'
+
+    # Match double-quoted JSON strings with escape sequences
+    pattern = r'"(?:[^"\\]|\\.)*"'
+    masked = re.sub(pattern, repl, candidate, flags=re.DOTALL)
+    stripped = re.sub(r",\s*([}\]])", r"\1", masked)
+
+    def restore(m: re.Match) -> str:
+        idx = int(m.group(1))
+        return strings[idx]
+
+    return re.sub(r'"__BPC_STR_(\d+)__"', restore, stripped)
+
+
 def parse_json(text: str | None) -> dict | None:
     if not text:
         return None
@@ -139,10 +160,16 @@ def parse_json(text: str | None) -> dict | None:
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
         return None
+    candidate = text[start:end + 1]
     try:
-        return json.loads(text[start:end + 1])
+        return json.loads(candidate)
     except json.JSONDecodeError:
-        return None
+        # Strip trailing commas safely outside string literals and retry
+        try:
+            cleaned = _strip_trailing_commas(candidate)
+            return json.loads(cleaned)
+        except (json.JSONDecodeError, Exception):
+            return None
 
 
 async def retriever_call(ctx: RunContext, method: str, path: str, payload: dict | None = None) -> dict:

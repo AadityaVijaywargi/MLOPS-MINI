@@ -87,10 +87,12 @@ redone after the dossier is persisted.
 
 * *Modifier check (step 2-3).* When the model first declares itself done, a separate step reads
   the provisions it recorded, asks which depend on a variable another provision might cap, and
-  returns queries derived from that text plus cross-references found in it; the tool loop resumes
-  with them. Measured on this index: the setback query and the brief's own sentence do **not**
-  return the road-width height cap (`ZR2015:T10:ii.b`) in the top 6, while the derived query
-  "maximum height of building restricted by road width" ranks it **first**
+  returns queries derived from that text plus cross-references found in it; a deterministic variable
+  interaction safety net (`_variable_queries`: height/FAR/setbacks x road width/height/plot size)
+  is combined with model reflection to ensure vital regulatory interactions are never dropped,
+  and the tool loop resumes with them. Measured on this index: the setback query and the brief's own
+  sentence do **not** return the road-width height cap (`ZR2015:T10:ii.b`) in the top 6, while the derived
+  query "maximum height of building restricted by road width" ranks it **first**
   (`docs/reference_case.md`).
 * *Coverage check (step 5).* A mandatory topic still empty sends the model back with a different
   strategy (lexical mode, single document, references).

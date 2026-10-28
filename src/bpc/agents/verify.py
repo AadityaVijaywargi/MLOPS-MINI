@@ -178,7 +178,7 @@ def verify_findings(findings: list[dict], passages: dict[str, dict], proposal: d
             chk.errors.append(f"citation_unresolved: {pid!r} was not retrieved in this run")
             untraceable = True
         else:
-            if len(normalise(quote)) < 6 or normalise(quote) not in normalise(passage["text"]):
+            if len(normalise(quote)) < 10 or normalise(quote) not in normalise(passage["text"]):
                 chk.errors.append("quote_not_in_passage: quote is not verbatim text of the cited provision")
                 untraceable = True
             else:
@@ -198,8 +198,10 @@ def verify_findings(findings: list[dict], passages: dict[str, dict], proposal: d
                     try:
                         if not _close(derived_value(deriv, float(req)), float(req), 0.02):
                             chk.errors.append(f"derivation_mismatch: '{deriv}' != {req}")
+                            untraceable = True
                     except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
                         chk.errors.append(f"derivation_unparseable: '{deriv}'")
+                        untraceable = True
             elif not _member(float(req), allowed):
                 chk.errors.append(f"number_untraceable: required_value {req} not in passage or proposal")
                 untraceable = True
@@ -216,14 +218,18 @@ def verify_findings(findings: list[dict], passages: dict[str, dict], proposal: d
                 chk.errors.append(f"proposed_value_mismatch: {path} is {actual}, finding uses {prop}")
                 untraceable = True
         cmp = f.get("comparison")
-        if (status in ("satisfied", "violated") and cmp in _CMP and isinstance(req, (int, float))
+        if (status in ("satisfied", "violated") and isinstance(req, (int, float))
                 and isinstance(prop, (int, float))):
-            numeric += 1
-            holds = _CMP[cmp](float(prop), float(req))
-            if (status == "satisfied") == holds:
-                consistent += 1
+            if cmp not in _CMP:
+                chk.errors.append(f"comparison_missing: numeric finding requires a valid comparison operator (<, <=, >, >=, ==), got {cmp!r}")
+                untraceable = True
             else:
-                chk.errors.append(f"status_inconsistent: {prop} {cmp} {req} is {holds} but status is {status}")
+                numeric += 1
+                holds = _CMP[cmp](float(prop), float(req))
+                if (status == "satisfied") == holds:
+                    consistent += 1
+                else:
+                    chk.errors.append(f"status_inconsistent: {prop} {cmp} {req} is {holds} but status is {status}")
         if untraceable:
             hallucinated += 1
         if chk.ok and status in ("satisfied", "violated", "not_applicable"):

@@ -45,7 +45,7 @@ docker compose logs --since 10m llm-gateway | grep -E "provider (retry|failed)"
 
 **Symptom**
 - Runs stay `queued` or `researching`; the client keeps polling; eventually they come
-  back `failed` with "Run exceeded its 300 s deadline" (the API reaper).
+  back `failed` with "Run exceeded its deadline" (RUN_DEADLINE_S, default 900 s; the API reaper).
 - Grafana: `queue_depth{state="waiting"}` growing; "Run end-to-end latency p95" above
   the 45 s SLO line; `agent_inflight_runs` flat at `WORKER_CONCURRENCY x replicas`.
 
@@ -117,7 +117,7 @@ docker compose exec redis redis-cli LLEN q:research:processing
    - Cleared fault via `POST /admin/fault` (`{"mode": "none"}`).
    - Reset circuit via `POST /admin/circuit/reset`.
    - Gateway confirmed transition: `[{"state": "open"}, {"state": "closed"}]` with `consecutive_failures: 0`.
-   - Submitted unique verification proposal `run_fe5771ae1e484efa` to test end-to-end recovery against the live Gemini provider.
+   - Submitted unique verification proposal `run_fe5771ae1e484efa` to test end-to-end recovery against the live primary provider.
    - Polled until terminal state was reached:
      - **Status:** `completed`
      - **Route:** `clear-for-submission`

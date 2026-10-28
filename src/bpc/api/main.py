@@ -137,22 +137,59 @@ def _now():
 def _client_id(request: Request) -> str:
     cid = request.headers.get("X-Client-Id", "")
     if cid and len(cid) <= 64 and all(c.isalnum() or c in "._-" for c in cid):
+        host = request.client.host if request.client else "unknown"
+        # Protect internal high-rate override roles (e.g. loadtest, eval) from remote client spoofing
+        if cid in ("loadtest", "eval") and host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+            return f"{cid}:{host}"
         return cid
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 
-async def _rate_limited(client_id: str) -> int | None:
-    """Fixed one-minute window per client. Returns seconds to wait when limited."""
-    limit = settings.rate_limit_for(client_id)
-    window = int(time.time() // 60)
-    key = f"rl:{client_id}:{window}"
-    count = await S.redis.incr(key)
-    if count == 1:
-        await S.redis.expire(key, 70)
+_LOCAL_RL: dict[tuple[str, int], int] = {}
+_LOCAL_RL_LAST_PRUNE: float = 0.0
+
+
+def _check_local_rate_limit(client_id: str, limit: int) -> int | None:
+    """Bounded in-memory fallback rate limiter used when Redis is unavailable or unconfigured.
+    Prunes expired windows to prevent unbounded memory growth."""
+    global _LOCAL_RL_LAST_PRUNE
+    now = time.time()
+    window = int(now // 60)
+    if now - _LOCAL_RL_LAST_PRUNE > 60:
+        cutoff = window - 2
+        for k in [k for k in _LOCAL_RL if k[1] < cutoff]:
+            _LOCAL_RL.pop(k, None)
+        _LOCAL_RL_LAST_PRUNE = now
+
+    key = (client_id, window)
+    count = _LOCAL_RL.get(key, 0) + 1
+    _LOCAL_RL[key] = count
     if count > limit:
         RATE_LIMITED.inc()
-        return 60 - int(time.time() % 60)
+        return 60 - int(now % 60)
     return None
+
+
+async def _rate_limited(client_id: str) -> int | None:
+    """Fixed one-minute window per client. Enforces rate limits via Redis when available,
+    falling back to a bounded in-memory sliding window on Redis connection error to
+    preserve model budget protection."""
+    limit = settings.rate_limit_for(client_id)
+    if S.redis is None:
+        return _check_local_rate_limit(client_id, limit)
+    try:
+        window = int(time.time() // 60)
+        key = f"rl:{client_id}:{window}"
+        count = await S.redis.incr(key)
+        if count == 1:
+            await S.redis.expire(key, 70)
+        if count > limit:
+            RATE_LIMITED.inc()
+            return 60 - int(time.time() % 60)
+        return None
+    except Exception as exc:
+        log.warning("redis rate limit check failed, falling back to local rate limiter", error=str(exc))
+        return _check_local_rate_limit(client_id, limit)
 
 
 async def _quarantine(client_id: str, reason: str, raw: str, errors: list[FieldError]) -> JSONResponse:
@@ -323,6 +360,9 @@ async def feedback(run_id: str, body: FeedbackIn, request: Request):
     run = await get_run(S.pool, run_id)
     if not run:
         raise HTTPException(404, "unknown run id")
+    screen = screen_text(body.reason)
+    if screen.toxic:
+        raise HTTPException(422, "feedback reason contains abusive language")
     fid = await S.pool.fetchval(
         "INSERT INTO feedback (run_id, client_id, satisfactory, reason) VALUES ($1,$2,$3,$4) RETURNING id",
         run_id, _client_id(request), body.satisfactory, body.reason)
