@@ -2,7 +2,7 @@
 
 - **Author / Teammate:** Friend 3 (Aarav Yuval B G, SRN: PES1UG24AM004)
 - **Evaluation Set:** Slice 3 (Scenarios S16–S22) and Cross-Slice Aggregation (Slices 2 & 3)
-- **Model:** `gemini-3.5-flash-lite` via OpenAI-compatible gateway
+- **Model:** Hosted free-tier LLM via OpenAI-compatible gateway (configured via `LLM_PRIMARY_MODEL` at `LLM_PRIMARY_BASE_URL`)
 - **Target Variable:** Research agent modifier pass (`MODIFIER_SEARCH_ENABLED=true` vs `MODIFIER_SEARCH_ENABLED=false`)
 - **Artifacts Compared:** `eval/results/real_v2_part3.json` vs `eval/results/real_nomod_part3.json`
 

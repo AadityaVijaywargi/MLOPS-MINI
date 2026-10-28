@@ -2,7 +2,7 @@
 
 - **Author / Teammate:** Friend 3 (Aarav Yuval B G, SRN: PES1UG24AM004)
 - **Evaluation Set:** Slice 3 (Scenarios S16–S22) and Aggregate Slices 2 & 3
-- **Model:** `gemini-3.5-flash-lite` via OpenAI-compatible gateway (`https://generativelanguage.googleapis.com/v1beta/openai`)
+- **Model:** Hosted free-tier LLM via OpenAI-compatible gateway (configured via `LLM_PRIMARY_MODEL` at `LLM_PRIMARY_BASE_URL`)
 - **Configuration Variable:** `MODIFIER_SEARCH_ENABLED=true` (Prompt v2) vs `MODIFIER_SEARCH_ENABLED=false` (No-Mod)
 - **Execution Logs:** `eval/results/real_v2_part3.json` vs `eval/results/real_nomod_part3.json`
 
@@ -16,7 +16,7 @@ In our multi-agent compliance service, municipal regulations exhibit **non-local
 - A primary rule (e.g. Setback Table 8 or FAR Table 10) sets baseline permissions based on plot size and road width.
 - A secondary modifier clause located in a different chapter, or printed as an unindexed footnote, imposes overriding caps (e.g., Table 10 Note (ii)(b) restricting height to 11.5 m on roads $< 9.0\text{ m}$).
 
-To solve this, the **Research Agent** (`researcher`) incorporates an agentic **Modifier Check Step** (implemented in `src/bpc/agents/researcher/modifier.py`):
+To solve this, the **Research Agent** (`researcher`) incorporates an agentic **Modifier Check Step** (implemented in `src/bpc/agents/researcher.py`):
 1. When the agent declares primary research complete, the system inspects the recorded provisions.
 2. It detects variables that are subject to overriding caps under municipal bye-laws (e.g., building height vs. road width, plot depth vs. setbacks, high-rise fire buffers).
 3. Derived search queries targeting these modifier provisions are generated and injected back into the LangGraph tool loop.
