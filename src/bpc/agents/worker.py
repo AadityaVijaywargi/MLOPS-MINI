@@ -223,7 +223,7 @@ class Worker:
         result["cost_usd"] = round(cost, 8)
         result["tokens"] = {"prompt": pt, "completion": ct}
         pv = result.get("prompt_versions", {})
-        await update_run(self.pool, run_id, status=result["status"], route=result["route"], reason=result["reason"],
+        await update_run(self.pool, run_id, guard_terminal=True, status=result["status"], route=result["route"], reason=result["reason"],
                          result=result, prompt_versions=pv, flags=result["flags"], finished_at=_now(),
                          degraded=result["degraded"])
         e2e = (_now() - run["created_at"]).total_seconds()

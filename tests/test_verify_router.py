@@ -113,3 +113,36 @@ def test_proposed_value_must_match_its_proposal_field():
     assert "proposed_value_mismatch" in errs
     unnamed = f(proposal_field=None)
     assert "proposal_field_missing" in " ".join(verify_findings([unnamed], PASSAGES, PROPOSAL, ("height",)).errors())
+
+
+def test_missing_comparison_operator_fails_verification():
+    # VER-001 regression: numeric findings with satisfied/violated status must have a valid comparison operator
+    no_cmp = f(comparison=None)
+    rep = verify_findings([no_cmp], PASSAGES, PROPOSAL, ("height",))
+    assert not rep.passed
+    assert "comparison_missing" in " ".join(rep.errors())
+
+
+def test_short_quote_under_10_chars_fails_verification():
+    # VER-002 regression: quotes under 10 chars must not pass as verbatim quotes
+    short_quote = f(quote="height")
+    rep = verify_findings([short_quote], PASSAGES, PROPOSAL, ("height",))
+    assert not rep.passed
+    assert "quote_not_in_passage" in " ".join(rep.errors())
+
+
+def test_derivation_mismatch_counted_as_hallucination():
+    # VER-003 regression: derivation mismatches must count toward hallucination
+    mismatch = f(required_value=15.0, derivation="12% * 12")
+    rep = verify_findings([mismatch], PASSAGES, PROPOSAL, ("height",))
+    assert not rep.passed
+    assert "derivation_mismatch" in " ".join(rep.errors())
+    assert rep.hallucination_rate == 1.0
+
+
+def test_parse_json_trailing_comma():
+    # ROB-001 regression: JSON with trailing commas should be cleanly recovered
+    from bpc.agents.runtime import parse_json
+    raw_trailing = '```json\n{"status": "satisfied", "count": 42,}\n```'
+    parsed = parse_json(raw_trailing)
+    assert parsed == {"status": "satisfied", "count": 42}

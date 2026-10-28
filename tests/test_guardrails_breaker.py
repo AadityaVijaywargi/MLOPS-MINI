@@ -36,3 +36,25 @@ def test_breaker_opens_and_half_opens(monkeypatch):
     assert not b.allow()  # one probe at a time
     b.success()
     assert b.state == "closed"
+
+
+def test_client_id_override_protection():
+    from unittest.mock import MagicMock
+    from bpc.api.main import _client_id
+
+    # Remote client trying to claim loadtest override
+    remote_req = MagicMock()
+    remote_req.headers.get.return_value = "loadtest"
+    remote_req.client.host = "203.0.113.42"
+    assert _client_id(remote_req) == "loadtest:203.0.113.42"
+
+    # Local client using loadtest override
+    local_req = MagicMock()
+    local_req.headers.get.return_value = "loadtest"
+    local_req.client.host = "127.0.0.1"
+    assert _client_id(local_req) == "loadtest"
+
+
+def test_screen_text_toxic_feedback():
+    res = screen_text("I hate you moron, this system is shit")
+    assert res.toxic

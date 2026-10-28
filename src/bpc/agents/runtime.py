@@ -139,10 +139,16 @@ def parse_json(text: str | None) -> dict | None:
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
         return None
+    candidate = text[start:end + 1]
     try:
-        return json.loads(text[start:end + 1])
+        return json.loads(candidate)
     except json.JSONDecodeError:
-        return None
+        # Strip trailing commas before closing braces/brackets and retry
+        cleaned = re.sub(r",\s*([}\]])", r"\1", candidate)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            return None
 
 
 async def retriever_call(ctx: RunContext, method: str, path: str, payload: dict | None = None) -> dict:
