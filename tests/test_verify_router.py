@@ -146,3 +146,31 @@ def test_parse_json_trailing_comma():
     raw_trailing = '```json\n{"status": "satisfied", "count": 42,}\n```'
     parsed = parse_json(raw_trailing)
     assert parsed == {"status": "satisfied", "count": 42}
+
+
+def test_parse_json_preserves_strings_with_commas_and_braces():
+    # ROB-002 regression: parser must not mutate string literals containing commas and braces/brackets
+    from bpc.agents.runtime import parse_json
+    raw = '''```json
+    {
+        "clause": "Table 10, note (ii)(b),}",
+        "brackets": "sub-clause [ref 4,]",
+        "nested": {"key": "val,}"},
+        "escaped": "text with \\\"quote,}\\\" and backslash\\\\",
+        "array": [1, 2, 3,],
+    }
+    ```'''
+    parsed = parse_json(raw)
+    assert parsed is not None
+    assert parsed["clause"] == "Table 10, note (ii)(b),}"
+    assert parsed["brackets"] == "sub-clause [ref 4,]"
+    assert parsed["nested"]["key"] == "val,}"
+    assert parsed["escaped"] == 'text with "quote,}" and backslash\\'
+    assert parsed["array"] == [1, 2, 3]
+
+
+def test_parse_json_malformed_returns_none():
+    from bpc.agents.runtime import parse_json
+    assert parse_json("") is None
+    assert parse_json("not json at all") is None
+    assert parse_json('{"unclosed": "string') is None

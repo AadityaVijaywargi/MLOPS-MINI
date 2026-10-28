@@ -23,11 +23,12 @@
 - **Severity:** P1 CRITICAL
 - **Confidence:** CONFIRMED
 - **Independent Reviewers:** Reviewer E, Reviewer D
-- **File & Line:** `docs/l2_prompt_comparison.md:5`, `docs/l3_modifier_analysis.md:5`, `eval/results/compare_real_v2_vs_real_nomod.md:5`, `docs/runbook.md:120`
+- **File & Line:** `docs/l2_prompt_comparison.md:5`, `docs/l3_modifier_analysis.md:5`, `eval/results/compare_real_v2_vs_real_nomod.md:5, 18`, `docs/runbook.md:120`
 - **Concrete Evidence:**
   The literal provider URL `https://generativelanguage.googleapis.com/v1beta/openai` and model ID `gemini-3.5-flash-lite` were committed in documentation files, directly contradicting D4 and `docs/report.md`'s assertion that *"No LLM model id, provider endpoint or credential is in the repository"*.
+  **Historical Data Provenance Audit:** A complete byte-level audit of all 18+ raw evaluation JSON files (`eval/results/*.json`) confirmed that raw evaluation records never contained vendor URLs or API keys; they record scenario IDs, prompt version hashes, status, latency, route, cost, tokens, and verification details. Zero raw `.json` evaluation logs were modified or deleted.
 - **Impact:** Violates Requirement D4 and introduces documentation contradictions regarding model-agnostic neutrality.
-- **Minimal Fix:** Replaced hardcoded provider endpoints and model names with generic environment-injected placeholders (`$LLM_PRIMARY_MODEL` at `$LLM_PRIMARY_BASE_URL`).
+- **Minimal Fix:** Replaced hardcoded provider endpoints and model names with generic environment-injected placeholders (`$LLM_PRIMARY_MODEL` at `$LLM_PRIMARY_BASE_URL`). Sanitized residual provider free-tier mentions in markdown comparison files.
 - **Regression Test / Verification:** `git grep -iE "googleapis\.com|flash-lite"` returns 0 occurrences across active documentation.
 - **Disposition:** RESOLVED.
 
@@ -77,16 +78,17 @@
 
 ---
 
-### [OPS-001] Ingestion Crash on Transient Redis Disconnection in Rate Limiter
+### [OPS-001] Ingestion Crash on Transient Redis Disconnection & Rate Limiter Budget Protection
 - **Requirement ID:** A5, D7
 - **Severity:** P2 HIGH
 - **Confidence:** CONFIRMED
 - **Independent Reviewers:** Reviewer D, Reviewer E
-- **File & Line:** `src/bpc/api/main.py:144-156`
+- **File & Line:** `src/bpc/api/main.py:148-189`
 - **Concrete Evidence:**
-  `_rate_limited` invoked `await S.redis.incr(key)` without exception handling. A Redis timeout or restart triggered an unhandled exception resulting in HTTP 500 crashes on all incoming proposals.
-- **Impact:** Total denial of service at the API ingestion boundary during Redis maintenance or restart.
-- **Minimal Fix:** Wrapped Redis operations in `_rate_limited` in a `try/except` block, logging a warning and failing open (allowing the request through) during transient Redis outages.
+  `_rate_limited` originally invoked `await S.redis.incr(key)` without exception handling. A Redis timeout or restart triggered an unhandled exception resulting in HTTP 500 crashes on all incoming proposals. While a naive `try/except` returning `None` (fail-open) prevented crashes, failing open silently dismantled model budget and concurrency protections during Redis outages.
+- **Impact:** Total denial of service during Redis errors if unhandled; or uncontrolled API flood and model budget exhaustion if failing open.
+- **Minimal Fix:** Implemented a bounded in-memory sliding-window fallback rate limiter (`_check_local_rate_limit`) with window pruning. On Redis connection error or unavailability, the API logs a warning and enforces client rate limits locally in memory, returning HTTP 429 when limits are exceeded.
+- **Regression Tests:** `tests/test_guardrails_breaker.py::test_rate_limiter_redis_error_falls_back_to_in_memory` and `tests/test_guardrails_breaker.py::test_rate_limit_override_privilege`.
 - **Disposition:** RESOLVED.
 
 ---
@@ -178,17 +180,17 @@
 
 ---
 
-### [ROB-001] Strict JSON Parser Fails on LLM Trailing Commas
+### [ROB-001] Strict JSON Parser Fails on LLM Trailing Commas & String Mutation Risk
 - **Requirement ID:** A1
 - **Severity:** P2 HIGH
 - **Confidence:** CONFIRMED
 - **Independent Reviewers:** Reviewer E
-- **File & Line:** `src/bpc/agents/runtime.py:132-145`
+- **File & Line:** `src/bpc/agents/runtime.py:132-175`
 - **Concrete Evidence:**
-  `parse_json` failed completely when LLMs emitted JSON with trailing commas (e.g., `{"a": 1,}`), returning `None` and causing silent classification or provision dropouts.
-- **Impact:** Unnecessary verification retries and escalations caused solely by trivial JSON syntax formatting variations.
-- **Minimal Fix:** Added fallback in `parse_json` that strips trailing commas before closing braces/brackets (`re.sub(r",\s*([}\]])", r"\1", candidate)`) prior to parsing.
-- **Regression Test:** `tests/test_verify_router.py::test_parse_json_trailing_comma`.
+  `parse_json` failed completely when LLMs emitted JSON with trailing commas (e.g., `{"a": 1,}`), returning `None` and causing silent classification or provision dropouts. A naive regex removal `re.sub(r",\s*([}\]])", r"\1", candidate)` introduced a severe string corruption defect: any string literal containing `,}` or `,]` (e.g., `"notes": "items: a, b, and c,}"`) was corrupted into `"notes": "items: a, b, and c}"`.
+- **Impact:** Unnecessary verification retries and escalations from trailing commas; or silent mutation of legal citations and notes containing trailing punctuation.
+- **Minimal Fix:** Implemented `_strip_trailing_commas` with double-quoted string literal masking (`r'"(?:[^"\\]|\\.)*"'`) before trailing comma removal, restoring masked string literals intact afterwards.
+- **Regression Tests:** `tests/test_verify_router.py::test_parse_json_trailing_comma`, `tests/test_verify_router.py::test_parse_json_preserves_strings_with_commas_and_braces`, and `tests/test_verify_router.py::test_parse_json_malformed_returns_none`.
 - **Disposition:** RESOLVED.
 
 ---

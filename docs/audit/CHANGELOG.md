@@ -25,30 +25,38 @@
 
 ---
 
-### 2. Robust JSON Parsing Fallback (ROB-001 / Req: A1)
+### 2. Robust JSON Parsing Fallback & String Masking (ROB-001, ROB-002 / Req: A1)
 - **Affected File:** `src/bpc/agents/runtime.py`
 - **Root Cause:**
-  - LLMs occasionally emit JSON containing trailing commas before closing braces/brackets (`{"a": 1,}`). Standard `json.loads` fails on this syntax, returning `None` and triggering silent provision dropouts or verification retries.
+  - LLMs occasionally emit JSON containing trailing commas before closing braces/brackets (`{"a": 1,}`). Standard `json.loads` fails on this syntax, returning `None`.
+  - A naive regex trailing comma removal `re.sub(r",\s*([}\]])", r"\1", candidate)` inadvertently stripped commas and braces inside legitimate string literals (e.g. `"notes": "items: a, b, and c,}"`).
 - **Changes Made:**
-  - Added a regex-based pre-cleaning fallback (`re.sub(r",\s*([}\]])", r"\1", candidate)`) when standard `json.loads` raises `JSONDecodeError`.
+  - Implemented `_strip_trailing_commas` with double-quoted string literal masking (`r'"(?:[^"\\]|\\.)*"'`) prior to trailing comma removal, restoring masked strings intact.
+  - Handled escaped quotes, backslashes, and multiline text inside strings.
 - **Tests Added / Run:**
   - `tests/test_verify_router.py::test_parse_json_trailing_comma` [PASS]
+  - `tests/test_verify_router.py::test_parse_json_preserves_strings_with_commas_and_braces` [PASS]
+  - `tests/test_verify_router.py::test_parse_json_malformed_returns_none` [PASS]
 
 ---
 
-### 3. API Ingestion & Rate-Limit Resilience (OPS-001, SEC-003, SEC-004 / Req: A5, D7, L4, L6)
+### 3. API Ingestion & Rate-Limit Budget Fallback (OPS-001, OPS-004, SEC-003, SEC-004 / Req: A5, D7, L4, L6)
 - **Affected File:** `src/bpc/api/main.py`
 - **Root Cause:**
   - Unhandled Redis connection errors in `_rate_limited` crashed all incoming proposals with HTTP 500 errors.
-  - Remote callers could spoof `X-Client-Id: loadtest` to acquire 100,000 req/min without authentication.
+  - Simply failing open (`return None`) on Redis errors eliminated model budget and concurrency protections during Redis downtime.
+  - Remote callers could spoof `X-Client-Id: loadtest` to acquire 1,000 req/min without authentication.
   - The feedback submission endpoint did not screen `reason` text for toxicity before database insertion.
 - **Changes Made:**
-  - Wrapped `_rate_limited` Redis calls in `try/except Exception`, logging a warning and failing open during transient Redis downtime.
-  - Protected internal high-rate override client IDs (`loadtest`, `eval`) by namespacing with client IP if the request originates from a non-local address.
+  - Implemented bounded in-memory sliding-window fallback rate limiter (`_check_local_rate_limit`) with window pruning (2-minute cutoff).
+  - On Redis connection error or unconfigured state, `_rate_limited` falls back to `_check_local_rate_limit`, logging a warning and enforcing the client's configured limit (returning HTTP 429 when exceeded).
+  - Protected internal high-rate override client IDs (`loadtest`, `eval`) by namespacing with client IP (`loadtest:<ip>`) if originating from a non-local address, falling back to standard rate limits.
   - Added `screen_text(body.reason)` validation to `POST /v1/runs/{id}/feedback`, rejecting abusive content with HTTP 422.
 - **Tests Added / Run:**
   - `tests/test_guardrails_breaker.py::test_client_id_override_protection` [PASS]
   - `tests/test_guardrails_breaker.py::test_screen_text_toxic_feedback` [PASS]
+  - `tests/test_guardrails_breaker.py::test_rate_limiter_redis_error_falls_back_to_in_memory` [PASS]
+  - `tests/test_guardrails_breaker.py::test_rate_limit_override_privilege` [PASS]
 
 ---
 
@@ -64,14 +72,16 @@
 
 ---
 
-### 5. D4 Secrets & Cloud Model Hygiene (SEC-001, OPS-004 / Req: D4, D8)
+### 5. D4 Secrets & Cloud Model Hygiene (SEC-001 / Req: D4, D8)
 - **Affected Files:** `docs/l2_prompt_comparison.md`, `docs/l3_modifier_analysis.md`, `eval/results/compare_real_v2_vs_real_nomod.md`, `docs/runbook.md`
 - **Root Cause:**
   - Cloud provider endpoints (`https://generativelanguage.googleapis.com/...`) and model names (`gemini-3.5-flash-lite`) were committed in documentation files, violating Requirement D4.
   - `docs/runbook.md` documented a 300 s deadline while configuration defaults to 900 s.
 - **Changes Made:**
   - Scrubbed specific cloud URLs and model identifiers from markdown documents, replacing them with generic environment variable references (`$LLM_PRIMARY_MODEL` at `$LLM_PRIMARY_BASE_URL`).
+  - Sanitized residual mention of provider free tier in `eval/results/compare_real_v2_vs_real_nomod.md:18`.
   - Reconciled deadline documentation in `docs/runbook.md` to reference `RUN_DEADLINE_S (default 900 s)`.
+  - Verified that all 18+ raw evaluation JSON files (`eval/results/*.json`) were preserved untouched and never contained vendor secrets.
 - **Verification:**
   - `git grep -iE "googleapis\.com|flash-lite"` returns 0 results across active documentation.
 
@@ -87,6 +97,6 @@
 ---
 
 ## Summary of Test Results
-- **Initial Baseline Suite:** 25 passed in 4.77 s.
-- **Final Test Suite:** 31 passed in 4.45 s (+6 new regression tests).
+- **Initial Baseline Suite (Commit b10680e):** 25 passed in 4.77 s.
+- **Final Test Suite (Current Branch HEAD):** **35 passed in 3.94 s** (+10 new regression and robustness tests).
 - **Whitespace / Git Diff Check:** `git diff --check` passes with 0 errors.

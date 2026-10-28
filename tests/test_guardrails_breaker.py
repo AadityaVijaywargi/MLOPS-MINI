@@ -1,4 +1,5 @@
 import time
+import pytest
 
 from bpc.common.guardrails import filter_output_text, screen_text
 from bpc.gateway.breaker import CircuitBreaker
@@ -58,3 +59,36 @@ def test_client_id_override_protection():
 def test_screen_text_toxic_feedback():
     res = screen_text("I hate you moron, this system is shit")
     assert res.toxic
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_redis_error_falls_back_to_in_memory():
+    from unittest.mock import AsyncMock, patch
+    from bpc.api.main import _rate_limited, _LOCAL_RL, S
+    from bpc.common.config import get_settings
+
+    _LOCAL_RL.clear()
+    settings = get_settings()
+
+    mock_redis = AsyncMock()
+    mock_redis.incr.side_effect = ConnectionError("Redis cluster unreachable")
+    with patch.object(S, "redis", mock_redis):
+        # Ordinary requests up to default limit should be allowed under fallback
+        for _ in range(settings.rate_limit_per_minute):
+            wait = await _rate_limited("test_client_fallback")
+            assert wait is None
+
+        # Exceeding request must be blocked with retry wait (preserving budget)
+        blocked_wait = await _rate_limited("test_client_fallback")
+        assert blocked_wait is not None
+        assert 0 <= blocked_wait <= 60
+
+
+def test_rate_limit_override_privilege():
+    from bpc.common.config import Settings
+    custom = Settings(rate_limit_overrides="loadtest:1000,eval:600", rate_limit_per_minute=20)
+    # Verified local override client receives elevated limit
+    assert custom.rate_limit_for("loadtest") == 1000
+    assert custom.rate_limit_for("eval") == 600
+    # Spoofed remote client namespaced with IP falls back to standard limit
+    assert custom.rate_limit_for("loadtest:203.0.113.42") == 20

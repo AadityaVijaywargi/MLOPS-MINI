@@ -15,7 +15,7 @@ The modifier step is an agentic reflection pass executed at the conclusion of pr
 When the modifier step is disabled (`MODIFIER_SEARCH_ENABLED=false`), secondary overriding provisions located outside the primary zone tables are omitted from retrieval.
 
 ### Per-Scenario Run Status in Slice 3:
-- **`real_v1_part3`:** 2 scored (`S17`, `S22`), **5 provider degraded** (`S16`, `S18`, `S19`, `S20`, `S21`) due to upstream Gemini free-tier rate/quota limits.
+- **`real_v1_part3`:** 2 scored (`S17`, `S22`), **5 provider degraded** (`S16`, `S18`, `S19`, `S20`, `S21`) due to upstream provider free-tier rate/quota limits.
 - **`real_v2_part3`:** 4 scored (`S16`, `S19`, `S20`, `S22`), **3 provider degraded** (`S17`, `S18`, `S21`).
 - **`real_nomod_part3`:** **All 7 scored** (`S16` through `S22`), 0 provider degraded.
 

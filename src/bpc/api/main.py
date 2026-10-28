@@ -145,12 +145,39 @@ def _client_id(request: Request) -> str:
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 
+_LOCAL_RL: dict[tuple[str, int], int] = {}
+_LOCAL_RL_LAST_PRUNE: float = 0.0
+
+
+def _check_local_rate_limit(client_id: str, limit: int) -> int | None:
+    """Bounded in-memory fallback rate limiter used when Redis is unavailable or unconfigured.
+    Prunes expired windows to prevent unbounded memory growth."""
+    global _LOCAL_RL_LAST_PRUNE
+    now = time.time()
+    window = int(now // 60)
+    if now - _LOCAL_RL_LAST_PRUNE > 60:
+        cutoff = window - 2
+        for k in [k for k in _LOCAL_RL if k[1] < cutoff]:
+            _LOCAL_RL.pop(k, None)
+        _LOCAL_RL_LAST_PRUNE = now
+
+    key = (client_id, window)
+    count = _LOCAL_RL.get(key, 0) + 1
+    _LOCAL_RL[key] = count
+    if count > limit:
+        RATE_LIMITED.inc()
+        return 60 - int(now % 60)
+    return None
+
+
 async def _rate_limited(client_id: str) -> int | None:
-    """Fixed one-minute window per client. Returns seconds to wait when limited."""
+    """Fixed one-minute window per client. Enforces rate limits via Redis when available,
+    falling back to a bounded in-memory sliding window on Redis connection error to
+    preserve model budget protection."""
+    limit = settings.rate_limit_for(client_id)
     if S.redis is None:
-        return None
+        return _check_local_rate_limit(client_id, limit)
     try:
-        limit = settings.rate_limit_for(client_id)
         window = int(time.time() // 60)
         key = f"rl:{client_id}:{window}"
         count = await S.redis.incr(key)
@@ -161,8 +188,8 @@ async def _rate_limited(client_id: str) -> int | None:
             return 60 - int(time.time() % 60)
         return None
     except Exception as exc:
-        log.warning("rate limit check failed, failing open", error=str(exc))
-        return None
+        log.warning("redis rate limit check failed, falling back to local rate limiter", error=str(exc))
+        return _check_local_rate_limit(client_id, limit)
 
 
 async def _quarantine(client_id: str, reason: str, raw: str, errors: list[FieldError]) -> JSONResponse:
