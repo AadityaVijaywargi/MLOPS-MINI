@@ -224,7 +224,7 @@ services:
       RUN_DEADLINE_S: ${RUN_DEADLINE_S:-900}
       PROMPT_VARIANT_ASSESSOR: ${PROMPT_VARIANT_ASSESSOR:-v2}
       MODIFIER_SEARCH_ENABLED: ${MODIFIER_SEARCH_ENABLED:-true}
-    volumes: [secrets:/run/bpc-secrets:ro]
+    volumes: [secrets:/run/bpc-secrets:ro, ./src/bpc/api/static:/app/src/bpc/api/static:ro]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
